@@ -4,6 +4,14 @@ from pathlib import Path
 class FileStoreError(RuntimeError):
     pass
 
+
+def read_bytes(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise FileStoreError(f"Unable to read {path}: {exc}") from exc
+
+
 def write_bytes(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_suffix(f"{path.suffix}.tmp")

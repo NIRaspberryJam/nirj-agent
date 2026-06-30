@@ -84,3 +84,11 @@ def test_parse_manifest_rejects_blank_package_name() -> None:
 
     with pytest.raises(ManifestError, match="apt.packages"):
         parse_manifest(content)
+
+
+@pytest.mark.parametrize("package", ["--option", "UPPERCASE", "bad name"])
+def test_parse_manifest_rejects_unsafe_package_name(package: str) -> None:
+    content = f"schema: 1\napt:\n  packages: ['{package}']\n".encode()
+
+    with pytest.raises(ManifestError, match="apt.packages"):
+        parse_manifest(content)

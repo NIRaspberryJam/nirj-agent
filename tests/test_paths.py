@@ -8,6 +8,7 @@ def test_system_paths_use_expected_locations() -> None:
 
     assert paths.config == Path("/etc/nirj-agent/config.yaml")
     assert paths.state == Path("/var/lib/nirj-agent/state.yaml")
+    assert paths.apply_lock == Path("/run/nirj-agent/apply.lock")
     assert paths.maintenance_flag == Path(
         "/boot/firmware/nirj-maintenance"
     )
@@ -18,6 +19,7 @@ def test_sandbox_paths_stay_below_root(tmp_path: Path) -> None:
 
     assert paths.config == tmp_path / "etc/nirj-agent/config.yaml"
     assert paths.state == tmp_path / "var/lib/nirj-agent/state.yaml"
+    assert paths.apply_lock == tmp_path / "run/nirj-agent/apply.lock"
     assert paths.generated_dir == tmp_path / "var/lib/nirj-agent/generated"
     assert paths.maintenance_flag == (
         tmp_path / "boot/firmware/nirj-maintenance"

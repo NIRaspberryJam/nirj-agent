@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 import sys
@@ -9,10 +10,12 @@ from nirj_agent.config import ConfigError, DeviceType, create_config, load_confi
 from nirj_agent.manifests.github import GitHubManifestClient, ManifestDownloadError
 from nirj_agent.manifests.parser import ManifestError
 from nirj_agent.providers import AptProvider, AptProviderError
+from nirj_agent.services.apply import ApplyError, apply_manifest
 from nirj_agent.services.manifest import refresh_manifest
 from nirj_agent.services.plan import PlanError, create_plan
 from nirj_agent.state import load_state
 from nirj_agent.storage.files import FileStoreError
+from nirj_agent.storage.lock import LockError
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.storage.yaml import YamlStoreError
 
@@ -31,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands.add_parser(
         "plan",
         help="show package changes without applying them",
+    )
+    subcommands.add_parser(
+        "apply",
+        help="apply package changes from the cached manifest",
     )
 
     setup_parser = subcommands.add_parser(
@@ -95,6 +102,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "install": plan.install,
                     "remove": plan.remove,
                     "unchanged": plan.unchanged,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "apply":
+        if args.root is not None:
+            print(
+                "Package application does not support --root because apt "
+                "cannot be filesystem-sandboxed",
+                file=sys.stderr,
+            )
+            return 1
+
+        if os.geteuid() != 0:
+            print("Package application must run as root", file=sys.stderr)
+            return 1
+
+        try:
+            result = apply_manifest(
+                paths=paths,
+                package_provider=AptProvider(),
+            )
+        except (
+            ApplyError,
+            AptProviderError,
+            ConfigError,
+            FileStoreError,
+            LockError,
+            ManifestError,
+            YamlStoreError,
+        ) as exc:
+            print(f"Package application failed: {exc}", file=sys.stderr)
+            return 1
+
+        print(
+            json.dumps(
+                {
+                    "manifest_hash": result.state.manifest_hash,
+                    "last_apply": result.state.last_apply,
+                    "install": result.plan.install,
+                    "remove": result.plan.remove,
+                    "ready": result.state.ready,
                 },
                 indent=2,
             )

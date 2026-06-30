@@ -1,10 +1,16 @@
 from collections.abc import Mapping
 from pathlib import Path
+import re
 from typing import Any
 
 import yaml
 
 from .models import AptManifest, Manifest
+
+
+PACKAGE_NAME_PATTERN = re.compile(
+    r"^[a-z0-9][a-z0-9+.-]*(?::[a-z0-9][a-z0-9-]*)?$"
+)
 
 class ManifestError(ValueError):
     pass
@@ -53,7 +59,7 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
     packages = apt.get("packages", [])
 
     if not isinstance(packages, list) or not all(
-        isinstance(package, str) and bool(package.strip())
+        isinstance(package, str) and PACKAGE_NAME_PATTERN.fullmatch(package)
         for package in packages
     ):
         raise ManifestError(

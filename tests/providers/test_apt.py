@@ -57,3 +57,57 @@ def test_list_installed_reports_command_failure() -> None:
 
     with pytest.raises(AptProviderError, match="database error"):
         AptProvider(runner=runner).list_installed()
+
+
+def test_update_install_and_remove_use_safe_commands() -> None:
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    provider = AptProvider(runner=runner, command_timeout=600)
+    provider.update()
+    provider.install(("git", "thonny"))
+    provider.remove(("obsolete",))
+
+    assert [call[0] for call in calls] == [
+        ["apt-get", "update"],
+        [
+            "apt-get",
+            "install",
+            "--yes",
+            "--no-remove",
+            "--",
+            "git",
+            "thonny",
+        ],
+        ["apt-get", "remove", "--yes", "--", "obsolete"],
+    ]
+    assert all(call[1]["timeout"] == 600 for call in calls)
+
+
+def test_empty_install_and_remove_execute_nothing() -> None:
+    calls = []
+    provider = AptProvider(runner=lambda *args, **kwargs: calls.append(args))
+
+    provider.install(())
+    provider.remove(())
+
+    assert calls == []
+
+
+def test_apt_operation_failure_is_reported() -> None:
+    def runner(*_args, **_kwargs):
+        return SimpleNamespace(returncode=100, stdout="", stderr="apt failed")
+
+    with pytest.raises(AptProviderError, match="package installation failed"):
+        AptProvider(runner=runner).install(("thonny",))
+
+
+def test_apt_operation_timeout_is_wrapped() -> None:
+    def runner(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired("apt-get", 1800)
+
+    with pytest.raises(AptProviderError, match="Unable to run package removal"):
+        AptProvider(runner=runner).remove(("obsolete",))

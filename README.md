@@ -49,7 +49,15 @@ sudo /opt/nirj-agent/bin/nirj-agent get-config
 /opt/nirj-agent/bin/nirj-agent status
 sudo /opt/nirj-agent/bin/nirj-agent manifest refresh
 sudo /opt/nirj-agent/bin/nirj-agent plan
+sudo /opt/nirj-agent/bin/nirj-agent apply
 ```
+
+`apply` requires root and uses the previously cached manifest. It runs
+`apt-get update` only when packages need to be installed, installs missing
+packages, removes only obsolete packages previously managed by the agent, and
+persists state after every package operation succeeds. It never runs
+`autoremove`. The command deliberately rejects `--root` because that option
+cannot sandbox apt operations.
 
 The production configuration is read from `/etc/nirj-agent/config.yaml` and
 state is read from `/var/lib/nirj-agent/state.yaml`. A systemd unit and the
