@@ -71,3 +71,37 @@ def test_status_uses_sandbox_state_path(tmp_path, monkeypatch, capsys) -> None:
     assert result == 1
     assert loaded_paths == [tmp_path / "var/lib/nirj-agent/state.yaml"]
     capsys.readouterr()
+
+
+def test_up_rejects_sandbox_root(tmp_path, capsys) -> None:
+    result = cli.main(["--root", str(tmp_path), "up"])
+
+    assert result == 1
+    assert "does not support --root" in capsys.readouterr().err
+
+
+def test_up_requires_root(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 1000)
+
+    result = cli.main(["up"])
+
+    assert result == 1
+    assert "must run as root" in capsys.readouterr().err
+
+
+def test_up_runs_agent_as_root(monkeypatch) -> None:
+    received = {}
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+
+    def run_test_agent(**kwargs) -> None:
+        received.update(kwargs)
+
+    monkeypatch.setattr(cli, "run_agent", run_test_agent)
+
+    result = cli.main(["up"])
+
+    assert result == 0
+    assert received["paths"] == cli.AgentPaths.system()
+    assert isinstance(received["stop_event"], cli.Event)
+    assert isinstance(received["manifest_client"], cli.GitHubManifestClient)
+    assert isinstance(received["package_provider"], cli.AptProvider)

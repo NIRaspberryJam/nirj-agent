@@ -1,9 +1,11 @@
 import argparse
 import json
 import os
+import signal
 from dataclasses import asdict
 from pathlib import Path
 import sys
+from threading import Event
 from typing import Sequence
 
 from nirj_agent.config import ConfigError, DeviceType, create_config, load_config
@@ -13,6 +15,7 @@ from nirj_agent.providers import AptProvider, AptProviderError
 from nirj_agent.services.apply import ApplyError, apply_manifest
 from nirj_agent.services.manifest import refresh_manifest
 from nirj_agent.services.plan import PlanError, create_plan
+from nirj_agent.services.runner import run_agent
 from nirj_agent.state import load_state
 from nirj_agent.storage.files import FileStoreError
 from nirj_agent.storage.lock import LockError
@@ -31,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     subcommands.add_parser("status")
     subcommands.add_parser("get-config")
+    subcommands.add_parser(
+        "up",
+        help="reconcile the device and start the long-running agent",
+    )
     subcommands.add_parser(
         "plan",
         help="show package changes without applying them",
@@ -77,6 +84,53 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "get-config":
         config = load_config(paths.config)
         print(json.dumps(asdict(config), indent=2, default=str))
+        return 0
+
+    if args.command == "up":
+        if args.root is not None:
+            print(
+                "Agent startup does not support --root because package "
+                "application cannot be filesystem-sandboxed",
+                file=sys.stderr,
+            )
+            return 1
+
+        if os.geteuid() != 0:
+            print("Agent startup must run as root", file=sys.stderr)
+            return 1
+
+        stop_event = Event()
+
+        def request_shutdown(_signum, _frame) -> None:
+            stop_event.set()
+
+        previous_sigint = signal.signal(signal.SIGINT, request_shutdown)
+        previous_sigterm = signal.signal(signal.SIGTERM, request_shutdown)
+
+        try:
+            run_agent(
+                paths=paths,
+                stop_event=stop_event,
+                manifest_client=GitHubManifestClient(),
+                package_provider=AptProvider(),
+            )
+        except (
+            ApplyError,
+            AptProviderError,
+            ConfigError,
+            FileStoreError,
+            LockError,
+            ManifestDownloadError,
+            ManifestError,
+            PlanError,
+            YamlStoreError,
+        ) as exc:
+            print(f"Agent startup failed: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            signal.signal(signal.SIGINT, previous_sigint)
+            signal.signal(signal.SIGTERM, previous_sigterm)
+
         return 0
 
     if args.command == "plan":
