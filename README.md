@@ -35,21 +35,40 @@ changes without installing, removing, or changing any state.
 
 ## Production usage
 
-Install into a dedicated virtual environment on the managed device:
+Run the installer as root with the device's asset ID and type:
 
 ```bash
-sudo python3 -m venv /opt/nirj-agent
-sudo /opt/nirj-agent/bin/python -m pip install .
+curl -fsSL \
+  https://raw.githubusercontent.com/NIRaspberryJam/nirj-agent/main/install.sh \
+  | sudo bash -s -- --asset-id PI5-001 --device-type pi5
 ```
 
-Production commands omit `--root` and use the real system locations:
+Valid device types for this systemd-based installer are `pi5` and `lpt-lx`.
+The installer clones the repository into `/opt/nirj-agent/source`, creates a
+virtual environment at `/opt/nirj-agent/venv`, creates the initial
+configuration, and enables and starts `nirj-agent.service`. Existing
+configuration is preserved when the installer is run again.
+
+At every service start, `scripts/run-agent.sh` fast-forwards the checkout,
+reinstalls the package, and runs `nirj-agent up`. The agent then refreshes and
+applies the configured manifest before remaining active.
+
+Inspect the service with:
 
 ```bash
-sudo /opt/nirj-agent/bin/nirj-agent get-config
-/opt/nirj-agent/bin/nirj-agent status
-sudo /opt/nirj-agent/bin/nirj-agent manifest refresh
-sudo /opt/nirj-agent/bin/nirj-agent plan
-sudo /opt/nirj-agent/bin/nirj-agent apply
+sudo systemctl status nirj-agent.service
+sudo journalctl -u nirj-agent.service -f
+```
+
+Production commands use `/opt/nirj-agent/venv` and omit `--root`:
+
+```bash
+sudo /opt/nirj-agent/venv/bin/nirj-agent get-config
+/opt/nirj-agent/venv/bin/nirj-agent status
+sudo /opt/nirj-agent/venv/bin/nirj-agent manifest refresh
+sudo /opt/nirj-agent/venv/bin/nirj-agent plan
+sudo /opt/nirj-agent/venv/bin/nirj-agent apply
+sudo /opt/nirj-agent/venv/bin/nirj-agent up
 ```
 
 `apply` requires root and uses the previously cached manifest. It runs
@@ -59,6 +78,11 @@ persists state after every package operation succeeds. It never runs
 `autoremove`. The command deliberately rejects `--root` because that option
 cannot sandbox apt operations.
 
+`up` is the long-running production command. It requires root, refreshes the
+configured manifest, applies it, and then remains running until it receives a
+shutdown signal. It deliberately rejects `--root` for the same reason as
+`apply`.
+
 The production configuration is read from `/etc/nirj-agent/config.yaml` and
-state is read from `/var/lib/nirj-agent/state.yaml`. A systemd unit and the
-privileged apply workflow will be added with the provider implementation.
+state is read from `/var/lib/nirj-agent/state.yaml`. A systemd unit will be
+added with the production installer.
