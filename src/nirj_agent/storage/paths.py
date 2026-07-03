@@ -11,6 +11,7 @@ class AgentPaths:
     current_manifest: Path
     target_manifest: Path
     update_state: Path
+    overlay_disabled_once_flag: Path
     apply_lock: Path
     generated_dir: Path
     maintenance_flag: Path
@@ -26,6 +27,9 @@ class AgentPaths:
             current_manifest=Path("/data/nirj/state/current-manifest.json"),
             target_manifest=Path("/data/nirj/state/target-manifest.json"),
             update_state=Path("/data/nirj/state/update.json"),
+            overlay_disabled_once_flag=Path(
+                "/data/nirj/state/overlay-disabled-once"
+            ),
             apply_lock=Path("/data/nirj/state/apply.lock"),
             generated_dir=Path("/data/nirj/cache/generated"),
             maintenance_flag=Path("/boot/firmware/nirj-maintenance"),
@@ -45,6 +49,9 @@ class AgentPaths:
             current_manifest=data_root / "state/current-manifest.json",
             target_manifest=data_root / "state/target-manifest.json",
             update_state=data_root / "state/update.json",
+            overlay_disabled_once_flag=(
+                data_root / "state/overlay-disabled-once"
+            ),
             apply_lock=data_root / "state/apply.lock",
             generated_dir=data_root / "cache/generated",
             maintenance_flag=root / "boot/firmware/nirj-maintenance",

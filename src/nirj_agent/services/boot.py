@@ -35,13 +35,22 @@ def boot_prep(
         update = load_update_state(paths.update_state)
         target_hash = update.target_hash
         overlay_status = overlay.status()
+        overlay_disabled_once = paths.overlay_disabled_once_flag.exists()
+        overlay_desired = config.overlay_enabled and not overlay_disabled_once
 
         if update.state is UpdatePhase.PENDING:
             if overlay_status.active:
                 overlay.disable()
                 overlay.sync_and_reboot()
                 return BootPrepResult("waiting_for_writable_boot", True)
-            return _apply_and_restore(paths, config.overlay_enabled, package_provider, overlay)
+            result = _apply_and_restore(
+                paths,
+                overlay_desired,
+                package_provider,
+                overlay,
+            )
+            _consume_overlay_disabled_once(paths, overlay_disabled_once)
+            return result
 
         check = check_for_update(paths, client, persist_target=True)
         if check.update_available:
@@ -55,7 +64,14 @@ def boot_prep(
                 overlay.disable()
                 overlay.sync_and_reboot()
                 return BootPrepResult("update_pending", True)
-            return _apply_and_restore(paths, config.overlay_enabled, package_provider, overlay)
+            result = _apply_and_restore(
+                paths,
+                overlay_desired,
+                package_provider,
+                overlay,
+            )
+            _consume_overlay_disabled_once(paths, overlay_disabled_once)
+            return result
 
         set_wallpaper_state(paths, "ready")
         state = replace(
@@ -67,14 +83,19 @@ def boot_prep(
         save_state(state, paths.state)
         save_update_state(UpdateState(), paths.update_state)
 
-        if config.overlay_enabled and not overlay_status.active:
+        if overlay_desired and not overlay_status.active:
             overlay.enable()
             overlay.sync_and_reboot()
             return BootPrepResult("enabling_overlay", True)
-        if not config.overlay_enabled and overlay_status.active:
+        if (
+            not overlay_desired
+            and not overlay_disabled_once
+            and overlay_status.active
+        ):
             overlay.disable()
             overlay.sync_and_reboot()
             return BootPrepResult("disabling_overlay", True)
+        _consume_overlay_disabled_once(paths, overlay_disabled_once)
         return BootPrepResult("ready", False)
     except Exception as exc:
         save_update_state(
@@ -104,3 +125,11 @@ def _apply_and_restore(
         overlay.sync_and_reboot()
         return BootPrepResult("update_applied", True)
     return BootPrepResult("update_applied", False)
+
+
+def _consume_overlay_disabled_once(
+    paths: AgentPaths,
+    overlay_disabled_once: bool,
+) -> None:
+    if overlay_disabled_once:
+        paths.overlay_disabled_once_flag.unlink()

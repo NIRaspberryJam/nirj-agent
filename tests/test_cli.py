@@ -1,4 +1,5 @@
 from importlib import import_module
+from types import SimpleNamespace
 from uuid import UUID
 
 from nirj_agent.config import (
@@ -8,6 +9,7 @@ from nirj_agent.config import (
     ManifestSource,
 )
 from nirj_agent.state import AgentState
+from nirj_agent.storage.paths import AgentPaths
 
 cli = import_module("nirj_agent.cli.main")
 
@@ -104,3 +106,21 @@ def test_up_runs_agent_as_root(monkeypatch) -> None:
     assert received["paths"] == cli.AgentPaths.system()
     assert isinstance(received["stop_event"], cli.Event)
     assert set(received) == {"paths", "stop_event"}
+
+
+def test_overlay_disable_sets_one_boot_flag(tmp_path, monkeypatch) -> None:
+    paths = AgentPaths.sandbox(tmp_path)
+    events = []
+    manager = SimpleNamespace(
+        disable=lambda: events.append("disable"),
+        sync_and_reboot=lambda: events.append("reboot"),
+    )
+    monkeypatch.setattr(cli.AgentPaths, "system", lambda: paths)
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(cli, "OverlayManager", lambda: manager)
+
+    result = cli.main(["overlay", "disable"])
+
+    assert result == 0
+    assert paths.overlay_disabled_once_flag.exists()
+    assert events == ["disable", "reboot"]

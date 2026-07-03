@@ -168,6 +168,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 0
             if not _require_root(args.root, "Overlay changes"):
                 return 1
+            if args.overlay_command == "disable":
+                paths.overlay_disabled_once_flag.parent.mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
+                paths.overlay_disabled_once_flag.touch()
+            elif args.overlay_command == "enable":
+                paths.overlay_disabled_once_flag.unlink(missing_ok=True)
             getattr(manager, args.overlay_command)()
             manager.sync_and_reboot()
             return 0
