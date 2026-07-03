@@ -69,7 +69,7 @@ def test_status_uses_sandbox_state_path(tmp_path, monkeypatch, capsys) -> None:
     result = cli.main(["--root", str(tmp_path), "status"])
 
     assert result == 1
-    assert loaded_paths == [tmp_path / "var/lib/nirj-agent/state.yaml"]
+    assert loaded_paths == [tmp_path / "data/nirj/state/state.yaml"]
     capsys.readouterr()
 
 
@@ -103,5 +103,4 @@ def test_up_runs_agent_as_root(monkeypatch) -> None:
     assert result == 0
     assert received["paths"] == cli.AgentPaths.system()
     assert isinstance(received["stop_event"], cli.Event)
-    assert isinstance(received["manifest_client"], cli.GitHubManifestClient)
-    assert isinstance(received["package_provider"], cli.AptProvider)
+    assert set(received) == {"paths", "stop_event"}

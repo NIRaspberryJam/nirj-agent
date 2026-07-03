@@ -14,7 +14,7 @@ def test_plan_prints_package_changes(tmp_path: Path, monkeypatch, capsys) -> Non
 
     def create_test_plan(paths, package_provider):
         assert paths.manifest_cache == (
-            tmp_path / "var/lib/nirj-agent/manifests/current.yaml"
+            tmp_path / "data/nirj/state/target-manifest.json"
         )
         assert package_provider is provider
         return PackagePlan(

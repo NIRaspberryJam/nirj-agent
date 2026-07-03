@@ -4,9 +4,13 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class AgentPaths:
+    root: Path
     config: Path
     state: Path
     manifest_cache: Path
+    current_manifest: Path
+    target_manifest: Path
+    update_state: Path
     apply_lock: Path
     generated_dir: Path
     maintenance_flag: Path
@@ -15,13 +19,15 @@ class AgentPaths:
     @classmethod
     def system(cls) -> "AgentPaths":
         return cls(
-            config=Path("/etc/nirj-agent/config.yaml"),
-            state=Path("/var/lib/nirj-agent/state.yaml"),
-            manifest_cache=Path(
-                "/var/lib/nirj-agent/manifests/current.yaml"
-            ),
-            apply_lock=Path("/run/nirj-agent/apply.lock"),
-            generated_dir=Path("/var/lib/nirj-agent/generated"),
+            root=Path("/data/nirj"),
+            config=Path("/data/nirj/config/config.yaml"),
+            state=Path("/data/nirj/state/state.yaml"),
+            manifest_cache=Path("/data/nirj/state/target-manifest.json"),
+            current_manifest=Path("/data/nirj/state/current-manifest.json"),
+            target_manifest=Path("/data/nirj/state/target-manifest.json"),
+            update_state=Path("/data/nirj/state/update.json"),
+            apply_lock=Path("/data/nirj/state/apply.lock"),
+            generated_dir=Path("/data/nirj/cache/generated"),
             maintenance_flag=Path("/boot/firmware/nirj-maintenance"),
             base_background=Path(
                 "/usr/share/nirj-agent/background-base.png"
@@ -30,14 +36,17 @@ class AgentPaths:
 
     @classmethod
     def sandbox(cls, root: Path) -> "AgentPaths":
+        data_root = root / "data/nirj"
         return cls(
-            config=root / "etc/nirj-agent/config.yaml",
-            state=root / "var/lib/nirj-agent/state.yaml",
-            manifest_cache=(
-                root / "var/lib/nirj-agent/manifests/current.yaml"
-            ),
-            apply_lock=root / "run/nirj-agent/apply.lock",
-            generated_dir=root / "var/lib/nirj-agent/generated",
+            root=data_root,
+            config=data_root / "config/config.yaml",
+            state=data_root / "state/state.yaml",
+            manifest_cache=data_root / "state/target-manifest.json",
+            current_manifest=data_root / "state/current-manifest.json",
+            target_manifest=data_root / "state/target-manifest.json",
+            update_state=data_root / "state/update.json",
+            apply_lock=data_root / "state/apply.lock",
+            generated_dir=data_root / "cache/generated",
             maintenance_flag=root / "boot/firmware/nirj-maintenance",
             base_background=(
                 root / "usr/share/nirj-agent/background-base.png"

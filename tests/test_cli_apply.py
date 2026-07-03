@@ -47,7 +47,7 @@ def test_apply_prints_result(monkeypatch, capsys) -> None:
     )
 
     def apply_test_manifest(paths, package_provider):
-        assert paths.config == Path("/etc/nirj-agent/config.yaml")
+        assert paths.config == Path("/data/nirj/config/config.yaml")
         assert package_provider is provider
         return SimpleNamespace(plan=plan, state=state)
 
