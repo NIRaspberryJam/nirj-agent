@@ -59,7 +59,10 @@ reboots. Failures persist as `failed` with an error in `update.json`.
 
 Overlay activity is determined from `findmnt -n -o FSTYPE /`; configuration
 changes use Raspberry Pi OS's `raspi-config nonint` interface and always
-require a reboot.
+require a reboot. `overlay disable` creates
+`/data/nirj/state/overlay-disabled-once`, which makes the next `boot-prep`
+skip OverlayFS manifest enforcement. The flag is consumed on that boot, so a
+later boot restores the manifest's configured OverlayFS state.
 
 Useful commands:
 

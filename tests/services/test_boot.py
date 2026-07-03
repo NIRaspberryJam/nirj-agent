@@ -72,3 +72,56 @@ def test_writable_boot_applies_target_and_reenables_overlay(tmp_path) -> None:
     assert overlay.events == ["enable", "reboot"]
     assert paths.current_manifest.read_bytes() == MANIFEST
     assert load_update_state(paths.update_state).state is UpdatePhase.NORMAL
+
+
+def test_overlay_disable_flag_skips_manifest_for_one_boot(tmp_path) -> None:
+    paths = prepare(tmp_path)
+    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_manifest.write_bytes(MANIFEST)
+    paths.overlay_disabled_once_flag.touch()
+    overlay = Overlay(active=False)
+
+    first_result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert first_result.action == "ready"
+    assert first_result.reboot_requested is False
+    assert overlay.events == []
+    assert not paths.overlay_disabled_once_flag.exists()
+
+    second_result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert second_result.action == "enabling_overlay"
+    assert second_result.reboot_requested is True
+    assert overlay.events == ["enable", "reboot"]
+
+
+def test_overlay_disable_flag_suppresses_restore_after_update(tmp_path) -> None:
+    paths = prepare(tmp_path)
+    paths.target_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.target_manifest.write_bytes(MANIFEST)
+    paths.overlay_disabled_once_flag.touch()
+    save_update_state(UpdateState(UpdatePhase.PENDING, "target"), paths.update_state)
+    overlay = Overlay(active=False)
+
+    result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert result.action == "update_applied"
+    assert result.reboot_requested is False
+    assert overlay.events == []
+    assert not paths.overlay_disabled_once_flag.exists()
+
+
+def test_overlay_disable_flag_survives_intermediate_reboot(tmp_path) -> None:
+    paths = prepare(tmp_path)
+    paths.target_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.target_manifest.write_bytes(MANIFEST)
+    paths.overlay_disabled_once_flag.touch()
+    save_update_state(UpdateState(UpdatePhase.PENDING, "target"), paths.update_state)
+    overlay = Overlay(active=True)
+
+    result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert result.action == "waiting_for_writable_boot"
+    assert result.reboot_requested is True
+    assert overlay.events == ["disable", "reboot"]
+    assert paths.overlay_disabled_once_flag.exists()
