@@ -2,87 +2,116 @@
 
 Device management agent for Northern Ireland Raspberry Jam devices.
 
-## Development usage
+## Persistent layout
 
-Create a virtual environment and install the package in editable mode:
+Production state lives on a persistent filesystem mounted at `/data`, outside
+the root OverlayFS:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
-pytest -q
+```text
+/data/nirj/
+├── agent-repo/
+├── agent-venv/
+├── run.sh
+├── config/config.yaml
+├── state/
+│   ├── state.yaml
+│   ├── update.json
+│   ├── current-manifest.json
+│   └── target-manifest.json
+├── logs/
+└── cache/
 ```
 
-Use `--root` to run the CLI against an isolated filesystem tree instead of
-reading or writing the host's `/etc`, `/var`, `/boot`, and `/usr` paths:
+`install.sh` refuses to install unless `/data` is already a mount point. Disk
+partitioning is intentionally a separate image/provisioning responsibility;
+guessing a block device in a `curl | bash` installer risks destroying data.
+
+## Bootstrap
+
+The production copy of `install.sh` belongs in `nirj-infra`; the copy in this
+repository is the implementation template. Run it as root with the device
+identity:
 
 ```bash
-mkdir -p .sandbox/etc/nirj-agent
-mkdir -p .sandbox/var/lib/nirj-agent
+curl -fsSL \
+  https://raw.githubusercontent.com/NIRaspberryJam/nirj-infra/main/install.sh \
+  | sudo bash -s -- --asset-id PI5-001 --device-type pi5
+```
+
+The installer installs prerequisites, clones `nirj-agent`, creates its venv,
+writes the stable `/data/nirj/run.sh`, creates the global CLI symlink, and
+enables the root-owned systemd service. Existing device configuration is
+preserved.
+
+At each service start, `run.sh` fast-forwards the agent checkout, updates the
+venv, runs `nirj-agent boot-prep`, then starts the idle long-running process
+with `nirj-agent up`. Exit code 194 means boot preparation requested a reboot;
+the runner exits cleanly instead of starting the daemon during shutdown.
+
+## Update and OverlayFS flow
+
+`boot-prep` downloads and validates the target manifest. If it differs from
+the current applied manifest while `/` is an overlay, the agent records
+`pending_update`, changes the generated wallpaper state, disables OverlayFS,
+syncs, and reboots. On the writable boot it records `applying_update`, applies
+the manifest, promotes the target manifest to current, restores OverlayFS, and
+reboots. Failures persist as `failed` with an error in `update.json`.
+
+Overlay activity is determined from `findmnt -n -o FSTYPE /`; configuration
+changes use Raspberry Pi OS's `raspi-config nonint` interface and always
+require a reboot.
+
+Useful commands:
+
+```bash
+nirj-agent status
+nirj-agent update check
+sudo nirj-agent update apply
+sudo nirj-agent boot-prep
+
+nirj-agent overlay status
+sudo nirj-agent overlay enable
+sudo nirj-agent overlay disable
+
+nirj-agent config get device.asset_id
+sudo nirj-agent config set overlay.enabled true
+```
+
+`status`, `update check`, and `config get` do not mutate persistent state.
+System changes and configuration writes require root. `update check` downloads
+and validates in memory; root-owned boot/update commands persist the target.
+
+The current schema applies APT package state and carries OverlayFS/background
+flags. The state machine is structured so files, services, and explicit tasks
+can be added as typed manifest providers rather than executing arbitrary data
+from a public URL.
+
+## Development
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install -e '.[dev]'
+python -m pytest -q
+```
+
+Read-only and setup commands can use `--root` to target a sandbox that mirrors
+the production `/data/nirj` layout:
+
+```bash
+nirj-agent --root .sandbox setup --asset-id TEST-001 --device-type pi5
 nirj-agent --root .sandbox status
-nirj-agent --root .sandbox get-config
+nirj-agent --root .sandbox config get device.asset_id
 nirj-agent --root .sandbox manifest refresh
 nirj-agent --root .sandbox plan
 ```
 
-The sandbox layout mirrors the production filesystem. For example, its
-configuration belongs at `.sandbox/etc/nirj-agent/config.yaml` and its state
-at `.sandbox/var/lib/nirj-agent/state.yaml`.
+Commands that invoke APT, OverlayFS, reboot, or production configuration writes
+reject `--root` because those effects cannot be filesystem-sandboxed.
 
-`manifest refresh` downloads and validates the configured manifest before
-atomically caching it. `plan` reads that cached manifest and reports package
-changes without installing, removing, or changing any state.
-
-## Production usage
-
-Run the installer as root with the device's asset ID and type:
-
-```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/NIRaspberryJam/nirj-agent/main/install.sh \
-  | sudo bash -s -- --asset-id PI5-001 --device-type pi5
-```
-
-Valid device types for this systemd-based installer are `pi5` and `lpt-lx`.
-The installer clones the repository into `/opt/nirj-agent/source`, creates a
-virtual environment at `/opt/nirj-agent/venv`, creates the initial
-configuration, and enables and starts `nirj-agent.service`. Existing
-configuration is preserved when the installer is run again.
-
-At every service start, `scripts/run-agent.sh` fast-forwards the checkout,
-reinstalls the package, and runs `nirj-agent up`. The agent then refreshes and
-applies the configured manifest before remaining active.
-
-Inspect the service with:
+Inspect production operation with:
 
 ```bash
 sudo systemctl status nirj-agent.service
 sudo journalctl -u nirj-agent.service -f
 ```
-
-Production commands use `/opt/nirj-agent/venv` and omit `--root`:
-
-```bash
-sudo /opt/nirj-agent/venv/bin/nirj-agent get-config
-/opt/nirj-agent/venv/bin/nirj-agent status
-sudo /opt/nirj-agent/venv/bin/nirj-agent manifest refresh
-sudo /opt/nirj-agent/venv/bin/nirj-agent plan
-sudo /opt/nirj-agent/venv/bin/nirj-agent apply
-sudo /opt/nirj-agent/venv/bin/nirj-agent up
-```
-
-`apply` requires root and uses the previously cached manifest. It runs
-`apt-get update` only when packages need to be installed, installs missing
-packages, removes only obsolete packages previously managed by the agent, and
-persists state after every package operation succeeds. It never runs
-`autoremove`. The command deliberately rejects `--root` because that option
-cannot sandbox apt operations.
-
-`up` is the long-running production command. It requires root, refreshes the
-configured manifest, applies it, and then remains running until it receives a
-shutdown signal. It deliberately rejects `--root` for the same reason as
-`apply`.
-
-The production configuration is read from `/etc/nirj-agent/config.yaml` and
-state is read from `/var/lib/nirj-agent/state.yaml`. A systemd unit will be
-added with the production installer.

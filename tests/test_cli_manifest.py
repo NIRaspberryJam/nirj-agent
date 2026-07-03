@@ -30,7 +30,7 @@ def test_manifest_refresh_prints_summary(tmp_path: Path, monkeypatch, capsys) ->
     assert result == 0
     assert '"sha256": "abc123"' in output.out
     assert '"packages": 2' in output.out
-    assert str(tmp_path / "var/lib/nirj-agent/manifests/current.yaml") in output.out
+    assert str(tmp_path / "data/nirj/state/target-manifest.json") in output.out
     assert output.err == ""
 
 

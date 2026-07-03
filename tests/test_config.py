@@ -5,7 +5,14 @@ from uuid import UUID
 import pytest
 import yaml
 
-from nirj_agent.config import DeviceType, ConfigError, create_config, load_config
+from nirj_agent.config import (
+    DeviceType,
+    ConfigError,
+    create_config,
+    get_config_value,
+    load_config,
+    set_config_value,
+)
 
 cli = import_module("nirj_agent.cli.main")
 
@@ -128,8 +135,30 @@ def test_setup_creates_sandbox_config(tmp_path: Path, capsys) -> None:
         "pi5",
     ])
 
-    config = load_config(tmp_path / "etc/nirj-agent/config.yaml")
+    config = load_config(tmp_path / "data/nirj/config/config.yaml")
 
     assert result == 0
     assert config.device.asset_id == "PI5-001"
     assert config.device.type is DeviceType.PI5
+
+
+def test_get_and_set_config_value(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    create_config("PI5-001", DeviceType.PI5, path)
+
+    assert get_config_value("overlay.enabled", path) is True
+    updated = set_config_value("overlay.enabled", False, path)
+
+    assert updated.overlay_enabled is False
+    assert get_config_value("overlay.enabled", path) is False
+
+
+def test_set_config_value_validates_before_writing(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    create_config("PI5-001", DeviceType.PI5, path)
+    original = path.read_bytes()
+
+    with pytest.raises(ConfigError):
+        set_config_value("device.type", "toaster", path)
+
+    assert path.read_bytes() == original
