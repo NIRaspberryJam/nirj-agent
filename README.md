@@ -82,11 +82,14 @@ sudo nirj-agent overlay disable
 
 nirj-agent config get device.asset_id
 sudo nirj-agent config set overlay.enabled true
+sudo nirj-agent set-config asset-id PI5-002
 ```
 
 `status`, `update check`, and `config get` do not mutate persistent state.
-System changes and configuration writes require root. `update check` downloads
-and validates in memory; root-owned boot/update commands persist the target.
+System changes and configuration writes require root. `set-config` provides
+operator-friendly field names such as `asset-id`, while `config set` accepts
+the underlying dotted configuration key. `update check` downloads and validates
+in memory; root-owned boot/update commands persist the target.
 
 The current schema applies APT package state and carries OverlayFS/background
 flags. When `background.enabled` is true, `boot-prep` renders the current state

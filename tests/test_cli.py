@@ -7,6 +7,8 @@ from nirj_agent.config import (
     DeviceConfig,
     DeviceType,
     ManifestSource,
+    create_config,
+    load_config,
 )
 from nirj_agent.state import AgentState
 from nirj_agent.storage.paths import AgentPaths
@@ -57,6 +59,28 @@ def test_get_config_calls_loader(monkeypatch, capsys) -> None:
     assert result == 0
     assert '"asset_id": "PI5-001"' in output
     assert str(config.device.id) in output
+
+
+def test_set_config_updates_asset_id(tmp_path, monkeypatch, capsys) -> None:
+    paths = AgentPaths.sandbox(tmp_path)
+    create_config("PI5-001", DeviceType.PI5, paths.config)
+    monkeypatch.setattr(cli.AgentPaths, "system", lambda: paths)
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
+
+    result = cli.main(["set-config", "asset-id", "PI5-002"])
+
+    assert result == 0
+    assert load_config(paths.config).device.asset_id == "PI5-002"
+    assert '"field": "asset-id"' in capsys.readouterr().out
+
+
+def test_set_config_requires_root(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 1000)
+
+    result = cli.main(["set-config", "asset-id", "PI5-002"])
+
+    assert result == 1
+    assert "must run as root" in capsys.readouterr().err
 
 
 def test_status_uses_sandbox_state_path(tmp_path, monkeypatch, capsys) -> None:

@@ -63,6 +63,10 @@ EXPECTED_ERRORS = (
     YamlStoreError,
 )
 
+SET_CONFIG_FIELDS = {
+    "asset-id": "device.asset_id",
+}
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="nirj-agent")
@@ -74,6 +78,13 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser("boot-prep", help="perform boot-time update preparation")
     commands.add_parser("plan", help="show package changes without applying them")
     commands.add_parser("apply", help="apply the cached target manifest")
+
+    set_config = commands.add_parser(
+        "set-config",
+        help="update a configuration field",
+    )
+    set_config.add_argument("field", choices=sorted(SET_CONFIG_FIELDS))
+    set_config.add_argument("value")
 
     setup = commands.add_parser("setup")
     setup.add_argument("--device-type", required=True, choices=[v.value for v in DeviceType])
@@ -140,6 +151,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ConfigError("Configuration values must be scalar")
             set_config_value(args.key, value, paths.config)
             print(json.dumps({"key": args.key, "value": value}, default=str))
+            return 0
+
+        if args.command == "set-config":
+            if not _require_root(args.root, "Configuration changes"):
+                return 1
+            key = SET_CONFIG_FIELDS[args.field]
+            set_config_value(key, args.value, paths.config)
+            print(json.dumps({"field": args.field, "value": args.value}))
             return 0
 
         if args.command == "setup":
@@ -310,6 +329,7 @@ def _operation_name(args) -> str:
         "update": "Update",
         "overlay": "Overlay operation",
         "config": "Configuration operation",
+        "set-config": "Configuration operation",
         "setup": "Setup",
         "wallpaper": "Wallpaper operation",
     }
