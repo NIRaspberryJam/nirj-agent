@@ -25,6 +25,7 @@ def test_system_paths_use_expected_locations() -> None:
     assert paths.wallpaper_autostart == Path(
         "/etc/xdg/autostart/nirj-wallpaper.desktop"
     )
+    assert paths.desktop_dir == Path("/home/jam/Desktop")
 
 
 def test_sandbox_paths_stay_below_root(tmp_path: Path) -> None:
@@ -49,3 +50,4 @@ def test_sandbox_paths_stay_below_root(tmp_path: Path) -> None:
     assert paths.wallpaper_autostart == (
         tmp_path / "etc/xdg/autostart/nirj-wallpaper.desktop"
     )
+    assert paths.desktop_dir == tmp_path / "home/jam/Desktop"

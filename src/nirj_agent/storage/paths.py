@@ -18,6 +18,7 @@ class AgentPaths:
     base_background: Path
     source_background: Path
     wallpaper_autostart: Path
+    desktop_dir: Path
 
     @classmethod
     def system(cls) -> "AgentPaths":
@@ -44,6 +45,7 @@ class AgentPaths:
             wallpaper_autostart=Path(
                 "/etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
+            desktop_dir=Path("/home/jam/Desktop"),
         )
 
     @classmethod
@@ -72,6 +74,7 @@ class AgentPaths:
             wallpaper_autostart=(
                 root / "etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
+            desktop_dir=root / "home/jam/Desktop",
         )
 
 

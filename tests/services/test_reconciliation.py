@@ -1,4 +1,4 @@
-from nirj_agent.manifests import AptManifest, Manifest
+from nirj_agent.manifests import AptManifest, DesktopManifest, Manifest
 from nirj_agent.services.reconciliation import build_package_plan
 
 
@@ -6,6 +6,7 @@ def manifest(*packages: str, enforce: bool = True) -> Manifest:
     return Manifest(
         schema=1,
         apt=AptManifest(enforce=enforce, packages=packages),
+        desktop=DesktopManifest(shortcuts=()),
         overlay_enabled=False,
         background_enabled=False,
     )

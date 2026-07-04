@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
 
+SUPPORTED_DESKTOP_SHORTCUTS = frozenset({"vscode"})
+
+
 @dataclass(frozen=True)
 class AptManifest:
     enforce: bool
@@ -8,9 +11,15 @@ class AptManifest:
 
 
 @dataclass(frozen=True)
+class DesktopManifest:
+    shortcuts: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Manifest:
     schema: int
     apt: AptManifest
+    desktop: DesktopManifest
     overlay_enabled: bool
     background_enabled: bool
 

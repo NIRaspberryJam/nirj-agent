@@ -11,6 +11,7 @@ from nirj_agent.storage.files import read_bytes
 from nirj_agent.storage.lock import exclusive_lock
 from nirj_agent.storage.paths import AgentPaths
 
+from .desktop_shortcuts import reconcile_desktop_shortcuts
 from .reconciliation import PackagePlan, build_package_plan
 
 
@@ -65,6 +66,8 @@ def apply_manifest(
 
         if plan.remove:
             package_provider.remove(plan.remove)
+
+        reconcile_desktop_shortcuts(paths, manifest.desktop.shortcuts)
 
         applied_at = now().astimezone(timezone.utc)
         state = AgentState(

@@ -103,6 +103,26 @@ def test_apply_skips_update_when_no_install_is_needed(tmp_path: Path) -> None:
     assert provider.events == ["list"]
 
 
+def test_apply_reconciles_vscode_shortcut_after_install(tmp_path: Path) -> None:
+    paths = prepare(tmp_path)
+    content = MANIFEST.replace(
+        b"packages: [git, thonny]",
+        b"packages: [code, git, thonny]",
+    ) + b"desktop:\n  shortcuts: [vscode]\n"
+    paths.manifest_cache.write_bytes(content)
+    provider = FakeApplyProvider({"git"})
+
+    apply_manifest(paths, provider)
+
+    shortcut = paths.desktop_dir / "visual-studio-code.desktop"
+    assert shortcut.exists()
+    assert provider.events[:3] == [
+        "list",
+        "update",
+        ("install", ("code", "thonny")),
+    ]
+
+
 @pytest.mark.parametrize("failure", ["update", "install", "remove"])
 def test_apply_failure_does_not_replace_previous_state(
     tmp_path: Path,

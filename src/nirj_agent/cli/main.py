@@ -28,6 +28,7 @@ from nirj_agent.services.desktop import (
     DesktopWallpaperManager,
 )
 from nirj_agent.services.desktop_setup import DesktopSetupError
+from nirj_agent.services.desktop_shortcuts import DesktopShortcutError
 from nirj_agent.services.manifest import refresh_manifest
 from nirj_agent.services.overlay import OverlayError, OverlayManager
 from nirj_agent.services.plan import PlanError, create_plan
@@ -56,6 +57,7 @@ EXPECTED_ERRORS = (
     PlanError,
     DesktopWallpaperError,
     DesktopSetupError,
+    DesktopShortcutError,
     WallpaperError,
     YamlStoreError,
 )

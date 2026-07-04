@@ -5,7 +5,12 @@ from typing import Any
 
 import yaml
 
-from .models import AptManifest, Manifest
+from .models import (
+    SUPPORTED_DESKTOP_SHORTCUTS,
+    AptManifest,
+    DesktopManifest,
+    Manifest,
+)
 
 
 PACKAGE_NAME_PATTERN = re.compile(
@@ -65,12 +70,35 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
         raise ManifestError(
             f"apt.packages in {source} must be a list of package names"
         )
+
+    desktop = require_mapping(root.get("desktop", {}), "desktop", source)
+    shortcuts = desktop.get("shortcuts", [])
+
+    if not isinstance(shortcuts, list) or not all(
+        isinstance(shortcut, str)
+        and shortcut in SUPPORTED_DESKTOP_SHORTCUTS
+        for shortcut in shortcuts
+    ):
+        supported = ", ".join(sorted(SUPPORTED_DESKTOP_SHORTCUTS))
+        raise ManifestError(
+            f"desktop.shortcuts in {source} must be a list containing only: "
+            f"{supported}"
+        )
+
+    if "vscode" in shortcuts and "code" not in packages:
+        raise ManifestError(
+            f"desktop shortcut vscode in {source} requires code in "
+            "apt.packages"
+        )
     
     return Manifest(
         schema=schema,
         apt=AptManifest(
             enforce=read_boolean(apt, "enforce", False, source),
             packages=tuple(dict.fromkeys(packages)),
+        ),
+        desktop=DesktopManifest(
+            shortcuts=tuple(dict.fromkeys(shortcuts)),
         ),
         overlay_enabled=read_enabled_section(root, "overlay", source),
         background_enabled=read_enabled_section(
