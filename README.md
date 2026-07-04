@@ -62,7 +62,11 @@ changes use Raspberry Pi OS's `raspi-config nonint` interface and always
 require a reboot. `overlay disable` creates
 `/data/nirj/state/overlay-disabled-once`, which makes the next `boot-prep`
 skip OverlayFS manifest enforcement. The flag is consumed on that boot, so a
-later boot restores the manifest's configured OverlayFS state.
+later boot restores the manifest's configured OverlayFS state. When enabling
+OverlayFS, the agent enforces `overlayroot=tmpfs:recurse=0` so separately
+mounted filesystems such as `/data` remain writable and persistent. Before
+disabling it, the agent temporarily normalizes the setting to
+`overlayroot=tmpfs` for compatibility with `raspi-config`.
 
 Useful commands:
 
