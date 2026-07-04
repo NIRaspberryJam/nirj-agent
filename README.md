@@ -139,3 +139,33 @@ Inspect production operation with:
 sudo systemctl status nirj-agent.service
 sudo journalctl -u nirj-agent.service -f
 ```
+
+## Windows bootstrap
+
+Native Windows installations use `C:\ProgramData\nirj` by default and run
+`scripts/run-agent.ps1` as a startup Scheduled Task. The runner fast-forwards
+the configured branch, updates the virtual environment, and starts
+`nirj-agent up`. It intentionally does not run `boot-prep`, because APT,
+OverlayFS, and the Linux desktop setup are not applicable on Windows.
+
+Run the production `install.ps1` from `nirj-infra` in an elevated PowerShell
+session:
+
+```powershell
+$installer = Join-Path $env:TEMP "install-nirj-agent.ps1"
+irm `
+  "https://raw.githubusercontent.com/NIRaspberryJam/nirj-infra/main/nirj-agent/install.ps1" `
+  -OutFile $installer
+& $installer -AssetId "WIN-001"
+```
+
+This bootstrap installs and starts the agent but does not yet reconcile
+Windows software. Windows package management requires a separate Winget
+manifest section and provider.
+
+Inspect the task and follow its log with:
+
+```powershell
+Get-ScheduledTask -TaskName "nirj-agent"
+Get-Content "C:\ProgramData\nirj\logs\agent.log" -Wait
+```

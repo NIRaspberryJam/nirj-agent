@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +23,23 @@ class AgentPaths:
 
     @classmethod
     def system(cls) -> "AgentPaths":
+        if os.name == "nt":
+            root = Path(
+                os.environ.get(
+                    "NIRJ_AGENT_INSTALL_DIR",
+                    str(
+                        Path(
+                            os.environ.get("ProgramData", r"C:\ProgramData")
+                        )
+                        / "nirj"
+                    ),
+                )
+            )
+            public_desktop = (
+                Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "Desktop"
+            )
+            return cls.windows(root, public_desktop)
+
         return cls(
             root=Path("/data/nirj"),
             config=Path("/data/nirj/config/config.yaml"),
@@ -46,6 +64,26 @@ class AgentPaths:
                 "/etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
             desktop_dir=Path("/home/jam/Desktop"),
+        )
+
+    @classmethod
+    def windows(cls, root: Path, public_desktop: Path) -> "AgentPaths":
+        return cls(
+            root=root,
+            config=root / "config/config.yaml",
+            state=root / "state/state.yaml",
+            manifest_cache=root / "state/target-manifest.json",
+            current_manifest=root / "state/current-manifest.json",
+            target_manifest=root / "state/target-manifest.json",
+            update_state=root / "state/update.json",
+            overlay_disabled_once_flag=root / "state/overlay-disabled-once",
+            apply_lock=root / "state/apply.lock",
+            generated_dir=root / "cache/generated",
+            maintenance_flag=root / "state/maintenance",
+            base_background=root / "assets/background-base.png",
+            source_background=root / "agent-repo/assets/background-base.png",
+            wallpaper_autostart=root / "config/wallpaper",
+            desktop_dir=public_desktop,
         )
 
     @classmethod

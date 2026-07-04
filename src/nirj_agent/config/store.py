@@ -88,6 +88,7 @@ def create_config(
             "setup will not replace the device UUID"
         )
 
+    is_windows = device_type is DeviceType.LAPTOP_WINDOWS
     data = {
         "device": {
             "id": str(uuid4()),
@@ -102,8 +103,8 @@ def create_config(
                 "ref": "main",
             }
         },
-        "overlay": {"enabled": True},
-        "background": {"enabled": True},
+        "overlay": {"enabled": not is_windows},
+        "background": {"enabled": not is_windows},
     }
     write_yaml(path, data)
     return load_config(path)

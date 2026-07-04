@@ -51,3 +51,17 @@ def test_sandbox_paths_stay_below_root(tmp_path: Path) -> None:
         tmp_path / "etc/xdg/autostart/nirj-wallpaper.desktop"
     )
     assert paths.desktop_dir == tmp_path / "home/jam/Desktop"
+
+
+def test_windows_paths_use_program_data_layout() -> None:
+    root = Path(r"C:\ProgramData\nirj")
+    desktop = Path(r"C:\Users\Public\Desktop")
+
+    paths = AgentPaths.windows(root, desktop)
+
+    assert paths.root == root
+    assert paths.config == root / "config/config.yaml"
+    assert paths.state == root / "state/state.yaml"
+    assert paths.apply_lock == root / "state/apply.lock"
+    assert paths.source_background == root / "agent-repo/assets/background-base.png"
+    assert paths.desktop_dir == desktop

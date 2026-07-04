@@ -99,6 +99,17 @@ def test_create_config_stores_full_uuid(tmp_path: Path) -> None:
     assert config.device.asset_id == "PI5-001"
     assert config.manifest.path == "manifests/pi5.manifest.yaml"
 
+
+def test_create_windows_config_disables_linux_only_features(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+
+    config = create_config("WIN-001", DeviceType.LAPTOP_WINDOWS, path)
+
+    assert config.device.type is DeviceType.LAPTOP_WINDOWS
+    assert config.manifest.path == "manifests/lpt-win.manifest.yaml"
+    assert config.overlay_enabled is False
+    assert config.background_enabled is False
+
 def test_device_type_values() -> None:
     assert [value.value for value in DeviceType] == [
         "pi5",

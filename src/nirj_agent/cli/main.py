@@ -1,4 +1,5 @@
 import argparse
+import ctypes
 import json
 import os
 import signal
@@ -249,10 +250,20 @@ def _require_root(root: Path | None, operation: str) -> bool:
     if root is not None:
         print(f"{operation} does not support --root", file=sys.stderr)
         return False
-    if os.geteuid() != 0:
-        print(f"{operation} must run as root", file=sys.stderr)
+    if not _is_elevated():
+        role = "as Administrator" if os.name == "nt" else "as root"
+        print(f"{operation} must run {role}", file=sys.stderr)
         return False
     return True
+
+
+def _is_elevated() -> bool:
+    if os.name == "nt":
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except (AttributeError, OSError):
+            return False
+    return os.geteuid() == 0
 
 
 def _run_forever(paths: AgentPaths) -> int:
