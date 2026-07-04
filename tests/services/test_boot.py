@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+from PIL import Image
+
 from nirj_agent.config import DeviceType, create_config
 from nirj_agent.services.boot import boot_prep
 from nirj_agent.services.overlay import OverlayStatus
@@ -43,6 +45,8 @@ class Overlay:
 def prepare(tmp_path):
     paths = AgentPaths.sandbox(tmp_path)
     create_config("PI5-001", DeviceType.PI5, paths.config)
+    paths.base_background.parent.mkdir(parents=True)
+    Image.new("RGB", (640, 360), "black").save(paths.base_background)
     return paths
 
 

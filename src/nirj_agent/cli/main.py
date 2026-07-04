@@ -23,11 +23,17 @@ from nirj_agent.manifests.parser import ManifestError
 from nirj_agent.providers import AptProvider, AptProviderError
 from nirj_agent.services.apply import ApplyError, apply_manifest
 from nirj_agent.services.boot import boot_prep
+from nirj_agent.services.desktop import (
+    DesktopWallpaperError,
+    DesktopWallpaperManager,
+)
 from nirj_agent.services.manifest import refresh_manifest
 from nirj_agent.services.overlay import OverlayError, OverlayManager
 from nirj_agent.services.plan import PlanError, create_plan
 from nirj_agent.services.runner import run_agent
 from nirj_agent.services.update import check_for_update
+from nirj_agent.services.wallpaper import WallpaperError
+from nirj_agent.services.wallpaper_session import watch_wallpaper
 from nirj_agent.state import load_state
 from nirj_agent.storage.files import FileStoreError
 from nirj_agent.storage.json import JsonStoreError
@@ -47,6 +53,8 @@ EXPECTED_ERRORS = (
     ManifestError,
     OverlayError,
     PlanError,
+    DesktopWallpaperError,
+    WallpaperError,
     YamlStoreError,
 )
 
@@ -80,6 +88,13 @@ def build_parser() -> argparse.ArgumentParser:
     overlay_commands.add_parser("status")
     overlay_commands.add_parser("enable")
     overlay_commands.add_parser("disable")
+
+    wallpaper = commands.add_parser("wallpaper")
+    wallpaper_commands = wallpaper.add_subparsers(
+        dest="wallpaper_command",
+        required=True,
+    )
+    wallpaper_commands.add_parser("watch")
 
     config = commands.add_parser("config")
     config_commands = config.add_subparsers(dest="config_command", required=True)
@@ -180,6 +195,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             manager.sync_and_reboot()
             return 0
 
+        if args.command == "wallpaper" and args.wallpaper_command == "watch":
+            return _watch_wallpaper(paths)
+
         if args.command == "plan":
             plan = create_plan(paths=paths, package_provider=AptProvider())
             print(json.dumps({
@@ -247,6 +265,26 @@ def _run_forever(paths: AgentPaths) -> int:
     return 0
 
 
+def _watch_wallpaper(paths: AgentPaths) -> int:
+    stop_event = Event()
+
+    def request_shutdown(_signum, _frame) -> None:
+        stop_event.set()
+
+    previous_sigint = signal.signal(signal.SIGINT, request_shutdown)
+    previous_sigterm = signal.signal(signal.SIGTERM, request_shutdown)
+    try:
+        watch_wallpaper(
+            paths=paths,
+            stop_event=stop_event,
+            desktop=DesktopWallpaperManager(),
+        )
+    finally:
+        signal.signal(signal.SIGINT, previous_sigint)
+        signal.signal(signal.SIGTERM, previous_sigterm)
+    return 0
+
+
 def _operation_name(args) -> str:
     names = {
         "apply": "Package application",
@@ -258,5 +296,6 @@ def _operation_name(args) -> str:
         "overlay": "Overlay operation",
         "config": "Configuration operation",
         "setup": "Setup",
+        "wallpaper": "Wallpaper operation",
     }
     return names.get(args.command, args.command.capitalize())

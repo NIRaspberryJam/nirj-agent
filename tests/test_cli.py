@@ -124,3 +124,22 @@ def test_overlay_disable_sets_one_boot_flag(tmp_path, monkeypatch) -> None:
     assert result == 0
     assert paths.overlay_disabled_once_flag.exists()
     assert events == ["disable", "reboot"]
+
+
+def test_wallpaper_watch_runs_in_user_session(tmp_path, monkeypatch) -> None:
+    paths = AgentPaths.sandbox(tmp_path)
+    received = {}
+    monkeypatch.setattr(cli.AgentPaths, "system", lambda: paths)
+    monkeypatch.setattr(cli, "DesktopWallpaperManager", lambda: "desktop")
+
+    def watch(**kwargs) -> None:
+        received.update(kwargs)
+        kwargs["stop_event"].set()
+
+    monkeypatch.setattr(cli, "watch_wallpaper", watch)
+
+    result = cli.main(["wallpaper", "watch"])
+
+    assert result == 0
+    assert received["paths"] == paths
+    assert received["desktop"] == "desktop"

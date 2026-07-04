@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, replace
 
 from nirj_agent.config import load_config
@@ -17,6 +18,9 @@ from .update import apply_target, check_for_update
 from .wallpaper import set_wallpaper_state
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass(frozen=True)
 class BootPrepResult:
     action: str
@@ -30,6 +34,7 @@ def boot_prep(
     overlay: OverlayManager,
 ) -> BootPrepResult:
     target_hash = None
+    config = None
     try:
         config = load_config(paths.config)
         update = load_update_state(paths.update_state)
@@ -46,6 +51,8 @@ def boot_prep(
             result = _apply_and_restore(
                 paths,
                 overlay_desired,
+                config.background_enabled,
+                config.device.asset_id,
                 package_provider,
                 overlay,
             )
@@ -59,7 +66,12 @@ def boot_prep(
                 paths.update_state,
             )
             target_hash = check.target_hash
-            set_wallpaper_state(paths, "updating")
+            _set_wallpaper(
+                paths,
+                config.background_enabled,
+                "updating",
+                config.device.asset_id,
+            )
             if overlay_status.active:
                 overlay.disable()
                 overlay.sync_and_reboot()
@@ -67,13 +79,20 @@ def boot_prep(
             result = _apply_and_restore(
                 paths,
                 overlay_desired,
+                config.background_enabled,
+                config.device.asset_id,
                 package_provider,
                 overlay,
             )
             _consume_overlay_disabled_once(paths, overlay_disabled_once)
             return result
 
-        set_wallpaper_state(paths, "ready")
+        _set_wallpaper(
+            paths,
+            config.background_enabled,
+            "ready",
+            config.device.asset_id,
+        )
         state = replace(
             load_state(paths.state),
             manifest_hash=check.current_hash,
@@ -102,13 +121,21 @@ def boot_prep(
             UpdateState(UpdatePhase.FAILED, target_hash, str(exc)),
             paths.update_state,
         )
-        set_wallpaper_state(paths, "failed")
+        if config is not None:
+            _set_wallpaper(
+                paths,
+                config.background_enabled,
+                "failed",
+                config.device.asset_id,
+            )
         raise
 
 
 def _apply_and_restore(
     paths: AgentPaths,
     overlay_desired: bool,
+    background_enabled: bool,
+    asset_code: str,
     package_provider: AptProvider,
     overlay: OverlayManager,
 ) -> BootPrepResult:
@@ -119,12 +146,26 @@ def _apply_and_restore(
     )
     apply_target(paths, package_provider)
     save_update_state(UpdateState(), paths.update_state)
-    set_wallpaper_state(paths, "ready")
+    _set_wallpaper(paths, background_enabled, "ready", asset_code)
     if overlay_desired:
         overlay.enable()
         overlay.sync_and_reboot()
         return BootPrepResult("update_applied", True)
     return BootPrepResult("update_applied", False)
+
+
+def _set_wallpaper(
+    paths: AgentPaths,
+    enabled: bool,
+    state: str,
+    asset_code: str,
+) -> None:
+    if not enabled:
+        return
+    try:
+        set_wallpaper_state(paths, state, asset_code)
+    except Exception:
+        logger.exception("Could not set wallpaper state to %s", state)
 
 
 def _consume_overlay_disabled_once(

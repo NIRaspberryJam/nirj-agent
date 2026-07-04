@@ -13,6 +13,11 @@ git -C "${REPO_DIR}" fetch origin "${BRANCH}"
 git -C "${REPO_DIR}" checkout "${BRANCH}"
 git -C "${REPO_DIR}" merge --ff-only "origin/${BRANCH}"
 
+install -d -m 0755 /usr/share/nirj-agent
+install -m 0644 \
+    "${REPO_DIR}/assets/background-base.png" \
+    /usr/share/nirj-agent/background-base.png
+
 "${VENV_DIR}/bin/python" -m pip install \
     --upgrade \
     "${REPO_DIR}"

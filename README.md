@@ -89,9 +89,10 @@ System changes and configuration writes require root. `update check` downloads
 and validates in memory; root-owned boot/update commands persist the target.
 
 The current schema applies APT package state and carries OverlayFS/background
-flags. The state machine is structured so files, services, and explicit tasks
-can be added as typed manifest providers rather than executing arbitrary data
-from a public URL.
+flags. When `background.enabled` is true, `boot-prep` renders the current state
+and device asset code over the installed base image. An XDG autostart watcher
+applies `/data/nirj/cache/generated/wallpaper.png` from inside the logged-in
+desktop session. Raspberry Pi Desktop/PCManFM, XFCE, and GNOME are supported.
 
 ## Development
 

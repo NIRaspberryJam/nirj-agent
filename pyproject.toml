@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Device management agent for Northern Ireland Raspberry Jam"
 requires-python = ">=3.11"
 dependencies = [
+    "Pillow>=11.0,<12",
     "PyYAML>=6.0,<7",
 ]
 
