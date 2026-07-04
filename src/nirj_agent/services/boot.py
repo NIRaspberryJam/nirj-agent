@@ -13,6 +13,10 @@ from nirj_agent.update import (
     save_update_state,
 )
 
+from .desktop_setup import (
+    desktop_setup_needs_reconcile,
+    reconcile_desktop_setup,
+)
 from .overlay import OverlayManager
 from .update import apply_target, check_for_update
 from .wallpaper import set_wallpaper_state
@@ -42,6 +46,18 @@ def boot_prep(
         overlay_status = overlay.status()
         overlay_disabled_once = paths.overlay_disabled_once_flag.exists()
         overlay_desired = config.overlay_enabled and not overlay_disabled_once
+        desktop_setup_required = desktop_setup_needs_reconcile(
+            paths,
+            config.background_enabled,
+        )
+
+        if desktop_setup_required and overlay_status.active:
+            overlay.disable()
+            overlay.sync_and_reboot()
+            return BootPrepResult("waiting_for_writable_desktop_setup", True)
+
+        if desktop_setup_required:
+            reconcile_desktop_setup(paths, config.background_enabled)
 
         if update.state is UpdatePhase.PENDING:
             if overlay_status.active:

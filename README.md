@@ -92,7 +92,10 @@ The current schema applies APT package state and carries OverlayFS/background
 flags. When `background.enabled` is true, `boot-prep` renders the current state
 and device asset code over the installed base image. An XDG autostart watcher
 applies `/data/nirj/cache/generated/wallpaper.png` from inside the logged-in
-desktop session. Raspberry Pi Desktop/PCManFM, XFCE, and GNOME are supported.
+desktop session. `boot-prep` also reconciles the base image and autostart entry;
+when OverlayFS is active, it requests a writable reboot before persisting those
+files and then restores the configured overlay state. Raspberry Pi
+Desktop/PCManFM, XFCE, and GNOME are supported.
 
 ## Development
 

@@ -16,6 +16,8 @@ class AgentPaths:
     generated_dir: Path
     maintenance_flag: Path
     base_background: Path
+    source_background: Path
+    wallpaper_autostart: Path
 
     @classmethod
     def system(cls) -> "AgentPaths":
@@ -35,6 +37,12 @@ class AgentPaths:
             maintenance_flag=Path("/boot/firmware/nirj-maintenance"),
             base_background=Path(
                 "/usr/share/nirj-agent/background-base.png"
+            ),
+            source_background=Path(
+                "/data/nirj/agent-repo/assets/background-base.png"
+            ),
+            wallpaper_autostart=Path(
+                "/etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
         )
 
@@ -57,6 +65,12 @@ class AgentPaths:
             maintenance_flag=root / "boot/firmware/nirj-maintenance",
             base_background=(
                 root / "usr/share/nirj-agent/background-base.png"
+            ),
+            source_background=(
+                data_root / "agent-repo/assets/background-base.png"
+            ),
+            wallpaper_autostart=(
+                root / "etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
         )
 

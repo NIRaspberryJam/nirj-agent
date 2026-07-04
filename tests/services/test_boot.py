@@ -4,6 +4,7 @@ from PIL import Image
 
 from nirj_agent.config import DeviceType, create_config
 from nirj_agent.services.boot import boot_prep
+from nirj_agent.services.desktop_setup import AUTOSTART_CONTENT
 from nirj_agent.services.overlay import OverlayStatus
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.update import UpdatePhase, UpdateState, load_update_state, save_update_state
@@ -45,8 +46,12 @@ class Overlay:
 def prepare(tmp_path):
     paths = AgentPaths.sandbox(tmp_path)
     create_config("PI5-001", DeviceType.PI5, paths.config)
+    paths.source_background.parent.mkdir(parents=True)
+    Image.new("RGB", (640, 360), "black").save(paths.source_background)
     paths.base_background.parent.mkdir(parents=True)
-    Image.new("RGB", (640, 360), "black").save(paths.base_background)
+    paths.base_background.write_bytes(paths.source_background.read_bytes())
+    paths.wallpaper_autostart.parent.mkdir(parents=True)
+    paths.wallpaper_autostart.write_bytes(AUTOSTART_CONTENT)
     return paths
 
 
@@ -129,3 +134,36 @@ def test_overlay_disable_flag_survives_intermediate_reboot(tmp_path) -> None:
     assert result.reboot_requested is True
     assert overlay.events == ["disable", "reboot"]
     assert paths.overlay_disabled_once_flag.exists()
+
+
+def test_desktop_setup_requests_writable_boot_when_overlay_is_active(
+    tmp_path,
+) -> None:
+    paths = prepare(tmp_path)
+    paths.wallpaper_autostart.unlink()
+    overlay = Overlay(active=True)
+
+    result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert result.action == "waiting_for_writable_desktop_setup"
+    assert result.reboot_requested is True
+    assert overlay.events == ["disable", "reboot"]
+    assert not paths.wallpaper_autostart.exists()
+
+
+def test_desktop_setup_is_persisted_on_writable_boot(tmp_path) -> None:
+    paths = prepare(tmp_path)
+    paths.wallpaper_autostart.unlink()
+    paths.base_background.write_bytes(b"old image")
+    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_manifest.write_bytes(MANIFEST)
+    overlay = Overlay(active=False)
+
+    result = boot_prep(paths, Client(), Packages(), overlay)
+
+    assert result.action == "enabling_overlay"
+    assert paths.wallpaper_autostart.read_bytes() == AUTOSTART_CONTENT
+    assert (
+        paths.base_background.read_bytes()
+        == paths.source_background.read_bytes()
+    )
