@@ -15,6 +15,17 @@ Categories=Development;IDE;
 StartupNotify=true
 """
 
+SONIC_PI_DESKTOP_ENTRY = b"""[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Sonic Pi
+Exec=/usr/bin/sonic-pi
+Icon=sonic-pi
+Terminal=false
+Categories=AudioVideo;Audio;Development;
+StartupNotify=true
+"""
+
 
 @dataclass(frozen=True)
 class DesktopShortcut:
@@ -23,6 +34,10 @@ class DesktopShortcut:
 
 
 SHORTCUTS = {
+    "sonic-pi": DesktopShortcut(
+        filename="sonic-pi.desktop",
+        content=SONIC_PI_DESKTOP_ENTRY,
+    ),
     "vscode": DesktopShortcut(
         filename="visual-studio-code.desktop",
         content=VSCODE_DESKTOP_ENTRY,

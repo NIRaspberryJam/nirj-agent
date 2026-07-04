@@ -126,3 +126,25 @@ def test_parse_manifest_requires_code_for_vscode_shortcut() -> None:
 
     with pytest.raises(ManifestError, match="requires code in apt.packages"):
         parse_manifest(content)
+
+
+def test_parse_manifest_accepts_sonic_pi_shortcut_with_package() -> None:
+    content = (
+        b"schema: 1\n"
+        b"apt:\n  packages: [sonic-pi]\n"
+        b"desktop:\n  shortcuts: [sonic-pi]\n"
+    )
+
+    manifest = parse_manifest(content)
+
+    assert manifest.desktop.shortcuts == ("sonic-pi",)
+
+
+def test_parse_manifest_requires_sonic_pi_for_shortcut() -> None:
+    content = b"schema: 1\ndesktop:\n  shortcuts: [sonic-pi]\n"
+
+    with pytest.raises(
+        ManifestError,
+        match="requires sonic-pi in apt.packages",
+    ):
+        parse_manifest(content)

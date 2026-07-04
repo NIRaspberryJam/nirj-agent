@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-SUPPORTED_DESKTOP_SHORTCUTS = frozenset({"vscode"})
+SUPPORTED_DESKTOP_SHORTCUTS = frozenset({"sonic-pi", "vscode"})
 
 
 @dataclass(frozen=True)

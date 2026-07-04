@@ -90,7 +90,13 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             f"desktop shortcut vscode in {source} requires code in "
             "apt.packages"
         )
-    
+
+    if "sonic-pi" in shortcuts and "sonic-pi" not in packages:
+        raise ManifestError(
+            f"desktop shortcut sonic-pi in {source} requires sonic-pi in "
+            "apt.packages"
+        )
+
     return Manifest(
         schema=schema,
         apt=AptManifest(

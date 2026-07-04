@@ -100,17 +100,19 @@ when OverlayFS is active, it requests a writable reboot before persisting those
 files and then restores the configured overlay state. Raspberry Pi
 Desktop/PCManFM, XFCE, and GNOME are supported.
 
-The manifest can also place an agent-managed VS Code launcher on the `jam`
-user's desktop. Include the `code` package and `vscode` shortcut together:
+The manifest can also place agent-managed application launchers on the `jam`
+user's desktop. Each shortcut must include its corresponding APT package:
 
 ```yaml
 schema: 1
 apt:
   packages:
     - code
+    - sonic-pi
 desktop:
   shortcuts:
     - vscode
+    - sonic-pi
 ```
 
 ## Development
