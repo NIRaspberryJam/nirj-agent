@@ -37,6 +37,7 @@ from nirj_agent.services.runner import run_agent
 from nirj_agent.services.update import check_for_update
 from nirj_agent.services.wallpaper import WallpaperError
 from nirj_agent.services.wallpaper_session import watch_wallpaper
+from nirj_agent.services.windows import WindowsReconcileError
 from nirj_agent.state import load_state
 from nirj_agent.storage.files import FileStoreError
 from nirj_agent.storage.json import JsonStoreError
@@ -60,6 +61,7 @@ EXPECTED_ERRORS = (
     DesktopSetupError,
     DesktopShortcutError,
     WallpaperError,
+    WindowsReconcileError,
     YamlStoreError,
 )
 

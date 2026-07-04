@@ -150,6 +150,9 @@ Native Windows installations use `C:\ProgramData\nirj` by default and run
 the configured branch, updates the virtual environment, and starts
 `nirj-agent up`. It intentionally does not run `boot-prep`, because APT,
 OverlayFS, and the Linux desktop setup are not applicable on Windows.
+At startup, the agent downloads and validates the Windows manifest, promotes
+it to the current manifest, and reports `ready: true`. Linux-only manifest
+settings are rejected instead of being ignored.
 
 Run the production `install.ps1` from `nirj-infra` in an elevated PowerShell
 session:
