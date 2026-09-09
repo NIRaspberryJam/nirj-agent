@@ -1,11 +1,24 @@
-from nirj_agent.manifests import AptManifest, DesktopManifest, Manifest
-from nirj_agent.services.reconciliation import build_package_plan
+from nirj_agent.manifests import (
+    AptManifest,
+    DesktopManifest,
+    Manifest,
+    PythonManifest,
+)
+from nirj_agent.services.reconciliation import (
+    build_package_plan,
+    build_python_package_plan,
+)
 
 
-def manifest(*packages: str, enforce: bool = True) -> Manifest:
+def manifest(
+    *packages: str,
+    enforce: bool = True,
+    python_packages: tuple[tuple[str, str], ...] = (),
+) -> Manifest:
     return Manifest(
         schema=1,
         apt=AptManifest(enforce=enforce, packages=packages),
+        python=PythonManifest(packages=python_packages),
         desktop=DesktopManifest(shortcuts=()),
         overlay_enabled=False,
         background_enabled=False,
@@ -67,4 +80,49 @@ def test_package_plan_reports_no_changes() -> None:
 
     assert plan.install == ()
     assert plan.remove == ()
+    assert plan.changes_required is False
+
+def test_python_plan_installs_missing_and_wrong_versions() -> None:
+    plan = build_python_package_plan(
+        manifest=manifest(
+            python_packages=(
+                ("jamkit", "0.2.0"),
+                ("requests", "2.32.5"),
+            )
+        ),
+        installed_packages={
+            "jamkit": "0.1.0",
+            "unmanaged": "1.0",
+        },
+        previously_managed_packages={"jamkit", "obsolete"},
+    )
+
+    assert plan.desired == (
+        ("jamkit", "0.2.0"),
+        ("requests", "2.32.5"),
+    )
+    assert plan.install == (
+        "jamkit==0.2.0",
+        "requests==2.32.5",
+    )
+    assert plan.remove == ("obsolete",)
+    assert plan.unchanged == ()
+
+
+def test_python_plan_preserves_unmanaged_packages() -> None:
+    plan = build_python_package_plan(
+        manifest=manifest(
+            python_packages=(("jamkit", "0.1.0"),)
+        ),
+        installed_packages={
+            "jamkit": "0.1.0",
+            "pip": "25.2",
+            "setuptools": "80.0",
+        },
+        previously_managed_packages={"jamkit"},
+    )
+
+    assert plan.install == ()
+    assert plan.remove == ()
+    assert plan.unchanged == (("jamkit", "0.1.0"),)
     assert plan.changes_required is False

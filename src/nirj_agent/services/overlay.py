@@ -33,11 +33,16 @@ class OverlayManager:
 
     def status(self) -> OverlayStatus:
         filesystem = self._run(["findmnt", "-n", "-o", "FSTYPE", "/"])
-        configured_result = self._run(
-            ["raspi-config", "nonint", "get_overlay_now"],
-            check=False,
-        )
-        configured = configured_result.returncode == 0
+        try:
+            configured_result = self._run(
+                ["raspi-config", "nonint", "get_overlay_now"],
+                check=False,
+            )
+            configured = configured_result.returncode == 0
+        except OverlayError as exc:
+            if not isinstance(exc.__cause__, FileNotFoundError):
+                raise
+            configured = None
         return OverlayStatus(
             active=filesystem.stdout.strip() == "overlay",
             configured=configured,

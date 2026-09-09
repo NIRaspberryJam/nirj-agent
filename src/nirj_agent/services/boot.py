@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 
 from nirj_agent.config import load_config
 from nirj_agent.manifests.github import GitHubManifestClient
-from nirj_agent.providers import AptProvider
+from nirj_agent.providers import AptProvider, PipProvider
 from nirj_agent.state import load_state, save_state
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.update import (
@@ -18,6 +18,7 @@ from .desktop_setup import (
     reconcile_desktop_setup,
 )
 from .overlay import OverlayManager
+from .apply import PartialApplyError
 from .update import apply_target, check_for_update
 from .wallpaper import set_wallpaper_state
 
@@ -35,6 +36,7 @@ def boot_prep(
     paths: AgentPaths,
     client: GitHubManifestClient,
     package_provider: AptProvider,
+    python_provider: PipProvider,
     overlay: OverlayManager,
 ) -> BootPrepResult:
     target_hash = None
@@ -70,13 +72,14 @@ def boot_prep(
                 config.background_enabled,
                 config.device.asset_id,
                 package_provider,
+                python_provider,
                 overlay,
             )
             _consume_overlay_disabled_once(paths, overlay_disabled_once)
             return result
 
         check = check_for_update(paths, client, persist_target=True)
-        if check.update_available:
+        if check.update_available or load_state(paths.state).errors:
             save_update_state(
                 UpdateState(UpdatePhase.PENDING, check.target_hash),
                 paths.update_state,
@@ -98,6 +101,7 @@ def boot_prep(
                 config.background_enabled,
                 config.device.asset_id,
                 package_provider,
+                python_provider,
                 overlay,
             )
             _consume_overlay_disabled_once(paths, overlay_disabled_once)
@@ -132,6 +136,16 @@ def boot_prep(
             return BootPrepResult("disabling_overlay", True)
         _consume_overlay_disabled_once(paths, overlay_disabled_once)
         return BootPrepResult("ready", False)
+    except PartialApplyError as exc:
+        save_update_state(
+            UpdateState(UpdatePhase.FAILED, target_hash, str(exc)),
+            paths.update_state,
+        )
+        if config is not None:
+            _set_wallpaper(paths, config.background_enabled, "failed", config.device.asset_id)
+        # Let the startup script launch the agent. Keep the target unpromoted
+        # and the root writable so the next update attempt can finish it.
+        return BootPrepResult("update_failed", False)
     except Exception as exc:
         save_update_state(
             UpdateState(UpdatePhase.FAILED, target_hash, str(exc)),
@@ -153,6 +167,7 @@ def _apply_and_restore(
     background_enabled: bool,
     asset_code: str,
     package_provider: AptProvider,
+    python_provider: PipProvider,
     overlay: OverlayManager,
 ) -> BootPrepResult:
     pending = load_update_state(paths.update_state)
@@ -160,7 +175,7 @@ def _apply_and_restore(
         replace(pending, state=UpdatePhase.APPLYING, error=None),
         paths.update_state,
     )
-    apply_target(paths, package_provider)
+    apply_target(paths, package_provider, python_provider)
     save_update_state(UpdateState(), paths.update_state)
     _set_wallpaper(paths, background_enabled, "ready", asset_code)
     if overlay_desired:

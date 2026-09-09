@@ -22,6 +22,7 @@ def test_save_and_load_state(tmp_path: Path) -> None:
         packages=("thonny", "scratch"),
         overlay_enabled=True,
         ready=True,
+        python_packages=(("jamkit", "0.1.0"),),
     )
     save_state(expected, path)
     assert load_state(path) == expected

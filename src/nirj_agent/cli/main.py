@@ -21,7 +21,12 @@ from nirj_agent.config import (
 )
 from nirj_agent.manifests.github import GitHubManifestClient, ManifestDownloadError
 from nirj_agent.manifests.parser import ManifestError
-from nirj_agent.providers import AptProvider, AptProviderError
+from nirj_agent.providers import (
+    AptProvider,
+    AptProviderError,
+    PipProvider,
+    PipProviderError,
+)
 from nirj_agent.services.apply import ApplyError, apply_manifest
 from nirj_agent.services.boot import boot_prep
 from nirj_agent.services.desktop import (
@@ -49,6 +54,7 @@ from nirj_agent.storage.yaml import YamlStoreError
 EXPECTED_ERRORS = (
     ApplyError,
     AptProviderError,
+    PipProviderError,
     ConfigError,
     FileStoreError,
     JsonStoreError,
@@ -180,6 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 paths=paths,
                 client=GitHubManifestClient(),
                 package_provider=AptProvider(),
+                python_provider=PipProvider(paths.python_environment),
                 overlay=OverlayManager(),
             )
             print(json.dumps(asdict(result), indent=2))
@@ -197,9 +204,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 paths=paths,
                 client=GitHubManifestClient(),
                 package_provider=AptProvider(),
+                python_provider=PipProvider(paths.python_environment),
                 overlay=OverlayManager(),
             )
             print(json.dumps(asdict(result), indent=2))
+            if result.action == "update_failed":
+                return 1
             return 194 if result.reboot_requested else 0
 
         if args.command == "overlay":
@@ -225,26 +235,45 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _watch_wallpaper(paths)
 
         if args.command == "plan":
-            plan = create_plan(paths=paths, package_provider=AptProvider())
-            print(json.dumps({
-                "changes_required": plan.changes_required,
-                "install": plan.install,
-                "remove": plan.remove,
-                "unchanged": plan.unchanged,
-            }, indent=2))
+            plan = create_plan(
+                paths=paths,
+                package_provider=AptProvider(),
+                python_provider=PipProvider(paths.python_environment),
+            )
+
+            print(
+                json.dumps(
+                    {
+                        "changes_required": plan.changes_required,
+                        "apt": asdict(plan.apt),
+                        "python": asdict(plan.python),
+                    },
+                    indent=2,
+                )
+            )
             return 0
 
         if args.command == "apply":
             if not _require_root(args.root, "Package application"):
                 return 1
-            result = apply_manifest(paths=paths, package_provider=AptProvider())
-            print(json.dumps({
-                "manifest_hash": result.state.manifest_hash,
-                "last_apply": result.state.last_apply,
-                "install": result.plan.install,
-                "remove": result.plan.remove,
-                "ready": result.state.ready,
-            }, indent=2))
+            result = apply_manifest(
+                paths=paths,
+                package_provider=AptProvider(),
+                python_provider=PipProvider(paths.python_environment),
+            )
+            print(
+                json.dumps(
+                    {
+                        "manifest_hash": result.state.manifest_hash,
+                        "last_apply": result.state.last_apply,
+                        "apt": asdict(result.plan.apt),
+                        "python": asdict(result.plan.python),
+                        "ready": result.state.ready,
+                    },
+                    indent=2,
+                )
+            )
+
             return 0
 
         if args.command == "manifest" and args.manifest_command == "refresh":
@@ -258,7 +287,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "sha256": document.sha256,
                 "source": document.source_url,
                 "cache": str(paths.manifest_cache),
-                "packages": len(document.manifest.apt.packages),
+                "apt_packages": len(document.manifest.apt.packages),
+                "python_packages": len(document.manifest.python.packages),
             }, indent=2))
             return 0
     except EXPECTED_ERRORS as exc:

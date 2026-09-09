@@ -100,6 +100,29 @@ when OverlayFS is active, it requests a writable reboot before persisting those
 files and then restores the configured overlay state. Raspberry Pi
 Desktop/PCManFM, XFCE, and GNOME are supported.
 
+Python packages are installed into /data/nirj/python-venv. Package versions
+must be exact. Packages are installed from PyPI as wheels; direct URLs, Git
+repositories, editable installs, and arbitrary pip options are not accepted.
+
+Once that environment exists, the agent configures the existing `/home/jam`
+account to use it in Bash and desktop login sessions, and sets VS Code's
+`python.defaultInterpreterPath` to `/data/nirj/python-venv/bin/python`.
+Log out and back in after the first application to pick up the session PATH.
+The Python extension must be installed in VS Code; workspaces with an already
+selected interpreter may need **Python: Select Interpreter** once. Explicitly
+activated virtual environments take precedence in new shells. System Python
+at `/usr/bin/python3` is unchanged. Existing shell configuration, VS Code
+settings (including comments), and file ownership are preserved.
+
+Package operation failures are logged and recorded in the agent state's
+`errors` list. Independent APT/Python operations continue, and shortcuts are
+only created for applications confirmed installed. A partial update leaves
+`ready: false` and does not promote the target manifest to current. The agent
+still starts, with the root left writable if an update required disabling
+OverlayFS. Retry with `nirj-agent update apply` or restart the service after
+fixing the package/repository issue; there is no periodic retry loop.
+Explicit apply commands return a failure exit status for partial updates.
+
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 
@@ -108,7 +131,11 @@ schema: 1
 apt:
   packages:
     - code
+    - python3-venv
     - sonic-pi
+python:
+  packages:
+    jamkit: "0.1.0"
 desktop:
   shortcuts:
     - vscode
