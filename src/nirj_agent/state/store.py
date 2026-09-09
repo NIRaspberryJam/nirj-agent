@@ -31,6 +31,7 @@ def load_state(path: Path = STATE_PATH) -> AgentState:
         overlay_enabled=bool(data.get("overlay", {}).get("enabled", False)),
         ready=bool(data.get("ready", False)),
         python_packages=python_packages,
+        errors=tuple(data.get("errors", [])),
     )
 
 

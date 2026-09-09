@@ -9,3 +9,4 @@ class AgentState:
     overlay_enabled: bool
     ready: bool
     python_packages: tuple[tuple[str, str], ...] = ()
+    errors: tuple[str, ...] = ()

@@ -18,6 +18,7 @@ from .desktop_setup import (
     reconcile_desktop_setup,
 )
 from .overlay import OverlayManager
+from .apply import PartialApplyError
 from .update import apply_target, check_for_update
 from .wallpaper import set_wallpaper_state
 
@@ -78,7 +79,7 @@ def boot_prep(
             return result
 
         check = check_for_update(paths, client, persist_target=True)
-        if check.update_available:
+        if check.update_available or load_state(paths.state).errors:
             save_update_state(
                 UpdateState(UpdatePhase.PENDING, check.target_hash),
                 paths.update_state,
@@ -135,6 +136,16 @@ def boot_prep(
             return BootPrepResult("disabling_overlay", True)
         _consume_overlay_disabled_once(paths, overlay_disabled_once)
         return BootPrepResult("ready", False)
+    except PartialApplyError as exc:
+        save_update_state(
+            UpdateState(UpdatePhase.FAILED, target_hash, str(exc)),
+            paths.update_state,
+        )
+        if config is not None:
+            _set_wallpaper(paths, config.background_enabled, "failed", config.device.asset_id)
+        # Let the startup script launch the agent. Keep the target unpromoted
+        # and the root writable so the next update attempt can finish it.
+        return BootPrepResult("update_failed", False)
     except Exception as exc:
         save_update_state(
             UpdateState(UpdatePhase.FAILED, target_hash, str(exc)),

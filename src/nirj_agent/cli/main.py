@@ -208,6 +208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overlay=OverlayManager(),
             )
             print(json.dumps(asdict(result), indent=2))
+            if result.action == "update_failed":
+                return 1
             return 194 if result.reboot_requested else 0
 
         if args.command == "overlay":

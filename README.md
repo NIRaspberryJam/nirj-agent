@@ -114,6 +114,15 @@ activated virtual environments take precedence in new shells. System Python
 at `/usr/bin/python3` is unchanged. Existing shell configuration, VS Code
 settings (including comments), and file ownership are preserved.
 
+Package operation failures are logged and recorded in the agent state's
+`errors` list. Independent APT/Python operations continue, and shortcuts are
+only created for applications confirmed installed. A partial update leaves
+`ready: false` and does not promote the target manifest to current. The agent
+still starts, with the root left writable if an update required disabling
+OverlayFS. Retry with `nirj-agent update apply` or restart the service after
+fixing the package/repository issue; there is no periodic retry loop.
+Explicit apply commands return a failure exit status for partial updates.
+
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 
