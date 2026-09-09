@@ -104,6 +104,16 @@ Python packages are installed into /data/nirj/python-venv. Package versions
 must be exact. Packages are installed from PyPI as wheels; direct URLs, Git
 repositories, editable installs, and arbitrary pip options are not accepted.
 
+Once that environment exists, the agent configures the existing `/home/jam`
+account to use it in Bash and desktop login sessions, and sets VS Code's
+`python.defaultInterpreterPath` to `/data/nirj/python-venv/bin/python`.
+Log out and back in after the first application to pick up the session PATH.
+The Python extension must be installed in VS Code; workspaces with an already
+selected interpreter may need **Python: Select Interpreter** once. Explicitly
+activated virtual environments take precedence in new shells. System Python
+at `/usr/bin/python3` is unchanged. Existing shell configuration, VS Code
+settings (including comments), and file ownership are preserved.
+
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 

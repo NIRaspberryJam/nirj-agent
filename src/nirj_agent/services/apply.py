@@ -12,6 +12,7 @@ from nirj_agent.storage.lock import exclusive_lock
 from nirj_agent.storage.paths import AgentPaths
 
 from .desktop_shortcuts import reconcile_desktop_shortcuts
+from .python_setup import reconcile_python_setup
 from .reconciliation import (
     ReconciliationPlan,
     build_package_plan,
@@ -104,6 +105,7 @@ def apply_manifest(
         if python_plan.remove:
             python_provider.remove(python_plan.remove)
 
+        reconcile_python_setup(paths)
         reconcile_desktop_shortcuts(paths, manifest.desktop.shortcuts)
 
         applied_at = now().astimezone(timezone.utc)
