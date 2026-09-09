@@ -29,6 +29,15 @@ class Packages:
         raise AssertionError("not needed")
 
 
+class PythonPackages:
+    def list_installed(self):
+        return {}
+    def install(self, _requirements):
+        raise AssertionError("not needed")
+    def remove(self, _packages):
+        raise AssertionError("not needed")
+
+
 class Overlay:
     def __init__(self, active):
         self.active = active
@@ -59,7 +68,7 @@ def test_boot_marks_pending_and_disables_active_overlay(tmp_path) -> None:
     paths = prepare(tmp_path)
     overlay = Overlay(active=True)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.reboot_requested is True
     assert overlay.events == ["disable", "reboot"]
@@ -74,7 +83,7 @@ def test_writable_boot_applies_target_and_reenables_overlay(tmp_path) -> None:
     save_update_state(UpdateState(UpdatePhase.PENDING, "target"), paths.update_state)
     overlay = Overlay(active=False)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.action == "update_applied"
     assert result.reboot_requested is True
@@ -90,14 +99,18 @@ def test_overlay_disable_flag_skips_manifest_for_one_boot(tmp_path) -> None:
     paths.overlay_disabled_once_flag.touch()
     overlay = Overlay(active=False)
 
-    first_result = boot_prep(paths, Client(), Packages(), overlay)
+    first_result = boot_prep(
+        paths, Client(), Packages(), PythonPackages(), overlay
+    )
 
     assert first_result.action == "ready"
     assert first_result.reboot_requested is False
     assert overlay.events == []
     assert not paths.overlay_disabled_once_flag.exists()
 
-    second_result = boot_prep(paths, Client(), Packages(), overlay)
+    second_result = boot_prep(
+        paths, Client(), Packages(), PythonPackages(), overlay
+    )
 
     assert second_result.action == "enabling_overlay"
     assert second_result.reboot_requested is True
@@ -112,7 +125,7 @@ def test_overlay_disable_flag_suppresses_restore_after_update(tmp_path) -> None:
     save_update_state(UpdateState(UpdatePhase.PENDING, "target"), paths.update_state)
     overlay = Overlay(active=False)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.action == "update_applied"
     assert result.reboot_requested is False
@@ -128,7 +141,7 @@ def test_overlay_disable_flag_survives_intermediate_reboot(tmp_path) -> None:
     save_update_state(UpdateState(UpdatePhase.PENDING, "target"), paths.update_state)
     overlay = Overlay(active=True)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.action == "waiting_for_writable_boot"
     assert result.reboot_requested is True
@@ -143,7 +156,7 @@ def test_desktop_setup_requests_writable_boot_when_overlay_is_active(
     paths.wallpaper_autostart.unlink()
     overlay = Overlay(active=True)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.action == "waiting_for_writable_desktop_setup"
     assert result.reboot_requested is True
@@ -159,7 +172,7 @@ def test_desktop_setup_is_persisted_on_writable_boot(tmp_path) -> None:
     paths.current_manifest.write_bytes(MANIFEST)
     overlay = Overlay(active=False)
 
-    result = boot_prep(paths, Client(), Packages(), overlay)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
 
     assert result.action == "enabling_overlay"
     assert paths.wallpaper_autostart.read_bytes() == AUTOSTART_CONTENT

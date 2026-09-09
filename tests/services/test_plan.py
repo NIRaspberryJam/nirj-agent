@@ -19,6 +19,16 @@ class FakePackageProvider:
         return self.installed
 
 
+class FakePythonProvider:
+    def __init__(self, installed: dict[str, str] | None = None) -> None:
+        self.installed = installed or {}
+        self.called = False
+
+    def list_installed(self) -> dict[str, str]:
+        self.called = True
+        return self.installed
+
+
 def write_manifest(path: Path, enforce: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -49,13 +59,15 @@ def test_create_plan_uses_config_manifest_state_and_provider(
         paths.state,
     )
     provider = FakePackageProvider({"git"})
+    python_provider = FakePythonProvider()
 
-    plan = create_plan(paths, provider)
+    plan = create_plan(paths, provider, python_provider)
 
     assert provider.called is True
-    assert plan.install == ("thonny",)
-    assert plan.remove == ("obsolete",)
-    assert plan.unchanged == ("git",)
+    assert python_provider.called is True
+    assert plan.apt.install == ("thonny",)
+    assert plan.apt.remove == ("obsolete",)
+    assert plan.apt.unchanged == ("git",)
 
 
 def test_create_plan_does_not_write_files(tmp_path: Path) -> None:
@@ -65,7 +77,11 @@ def test_create_plan_does_not_write_files(tmp_path: Path) -> None:
     config_before = paths.config.read_bytes()
     manifest_before = paths.manifest_cache.read_bytes()
 
-    create_plan(paths, FakePackageProvider({"git", "thonny"}))
+    create_plan(
+        paths,
+        FakePackageProvider({"git", "thonny"}),
+        FakePythonProvider(),
+    )
 
     assert paths.config.read_bytes() == config_before
     assert paths.manifest_cache.read_bytes() == manifest_before
@@ -77,7 +93,7 @@ def test_create_plan_requires_cached_manifest(tmp_path: Path) -> None:
     create_config("PI5-001", DeviceType.PI5, paths.config)
 
     with pytest.raises(ManifestError, match="Unable to read manifest"):
-        create_plan(paths, FakePackageProvider(set()))
+        create_plan(paths, FakePackageProvider(set()), FakePythonProvider())
 
 
 def test_create_plan_rejects_windows_before_querying_packages(
@@ -86,8 +102,10 @@ def test_create_plan_rejects_windows_before_querying_packages(
     paths = AgentPaths.sandbox(tmp_path)
     create_config("LPT-001", DeviceType.LAPTOP_WINDOWS, paths.config)
     provider = FakePackageProvider(set())
+    python_provider = FakePythonProvider()
 
     with pytest.raises(PlanError, match="not supported for Windows"):
-        create_plan(paths, provider)
+        create_plan(paths, provider, python_provider)
 
     assert provider.called is False
+    assert python_provider.called is False

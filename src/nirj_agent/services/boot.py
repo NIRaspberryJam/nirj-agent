@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 
 from nirj_agent.config import load_config
 from nirj_agent.manifests.github import GitHubManifestClient
-from nirj_agent.providers import AptProvider
+from nirj_agent.providers import AptProvider, PipProvider
 from nirj_agent.state import load_state, save_state
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.update import (
@@ -35,6 +35,7 @@ def boot_prep(
     paths: AgentPaths,
     client: GitHubManifestClient,
     package_provider: AptProvider,
+    python_provider: PipProvider,
     overlay: OverlayManager,
 ) -> BootPrepResult:
     target_hash = None
@@ -70,6 +71,7 @@ def boot_prep(
                 config.background_enabled,
                 config.device.asset_id,
                 package_provider,
+                python_provider,
                 overlay,
             )
             _consume_overlay_disabled_once(paths, overlay_disabled_once)
@@ -98,6 +100,7 @@ def boot_prep(
                 config.background_enabled,
                 config.device.asset_id,
                 package_provider,
+                python_provider,
                 overlay,
             )
             _consume_overlay_disabled_once(paths, overlay_disabled_once)
@@ -153,6 +156,7 @@ def _apply_and_restore(
     background_enabled: bool,
     asset_code: str,
     package_provider: AptProvider,
+    python_provider: PipProvider,
     overlay: OverlayManager,
 ) -> BootPrepResult:
     pending = load_update_state(paths.update_state)
@@ -160,7 +164,7 @@ def _apply_and_restore(
         replace(pending, state=UpdatePhase.APPLYING, error=None),
         paths.update_state,
     )
-    apply_target(paths, package_provider)
+    apply_target(paths, package_provider, python_provider)
     save_update_state(UpdateState(), paths.update_state)
     _set_wallpaper(paths, background_enabled, "ready", asset_code)
     if overlay_desired:

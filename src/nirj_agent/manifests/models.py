@@ -11,6 +11,11 @@ class AptManifest:
 
 
 @dataclass(frozen=True)
+class PythonManifest:
+    packages: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
 class DesktopManifest:
     shortcuts: tuple[str, ...]
 
@@ -19,9 +24,11 @@ class DesktopManifest:
 class Manifest:
     schema: int
     apt: AptManifest
+    python: PythonManifest
     desktop: DesktopManifest
     overlay_enabled: bool
     background_enabled: bool
+
 
 @dataclass(frozen=True)
 class ManifestDocument:

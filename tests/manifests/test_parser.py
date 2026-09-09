@@ -13,6 +13,10 @@ apt:
     - code
     - thonny
     - git
+python:
+  packages:
+    jamkit: "0.1.0"
+    Requests: "2.32.5"
 overlay:
   enabled: false
 background:
@@ -29,6 +33,10 @@ def test_parse_manifest_from_bytes() -> None:
     assert manifest.schema == 1
     assert manifest.apt.enforce is True
     assert manifest.apt.packages == ("code", "thonny", "git")
+    assert manifest.python.packages == (
+        ("jamkit", "0.1.0"),
+        ("requests", "2.32.5"),
+    )
     assert manifest.desktop.shortcuts == ("vscode",)
     assert manifest.overlay_enabled is False
     assert manifest.background_enabled is True
@@ -64,7 +72,7 @@ def test_parse_manifest_requires_integer_schema(schema: bytes) -> None:
 
 
 @pytest.mark.parametrize(
-    "section", [b"apt", b"overlay", b"background", b"desktop"]
+    "section", [b"apt", b"python", b"overlay", b"background", b"desktop"]
 )
 def test_parse_manifest_requires_section_mappings(section: bytes) -> None:
     content = b"schema: 1\n" + section + b": []\n"
@@ -148,3 +156,35 @@ def test_parse_manifest_requires_sonic_pi_for_shortcut() -> None:
         match="requires sonic-pi in apt.packages",
     ):
         parse_manifest(content)
+
+@pytest.mark.parametrize(
+    "packages",
+    [
+        [],
+        "jamkit==0.1.0",
+        {"": "0.1.0"},
+        {"jamkit": ""},
+        {"jamkit": 1},
+        {"jamkit": "not a version"},
+        {"--index-url": "1.0"},
+        {"bad name": "1.0"},
+    ],
+)
+def test_parse_manifest_rejects_invalid_python_packages(packages) -> None:
+    import yaml
+
+    content = yaml.safe_dump(
+        {
+            "schema": 1,
+            "python": {"packages": packages},
+        }
+    ).encode()
+
+    with pytest.raises(ManifestError, match="python.packages|Python package"):
+        parse_manifest(content)
+
+
+def test_parse_manifest_defaults_to_no_python_packages() -> None:
+    manifest = parse_manifest(b"schema: 1\n")
+
+    assert manifest.python.packages == ()

@@ -2,7 +2,11 @@ from importlib import import_module
 from pathlib import Path
 
 from nirj_agent.providers import AptProviderError
-from nirj_agent.services.reconciliation import PackagePlan
+from nirj_agent.services.reconciliation import (
+    PackagePlan,
+    PythonPackagePlan,
+    ReconciliationPlan,
+)
 
 
 cli = import_module("nirj_agent.cli.main")
@@ -10,18 +14,33 @@ cli = import_module("nirj_agent.cli.main")
 
 def test_plan_prints_package_changes(tmp_path: Path, monkeypatch, capsys) -> None:
     provider = object()
+    expected_python_provider = object()
     monkeypatch.setattr(cli, "AptProvider", lambda: provider)
+    monkeypatch.setattr(
+        cli,
+        "PipProvider",
+        lambda _path: expected_python_provider,
+    )
 
-    def create_test_plan(paths, package_provider):
+    def create_test_plan(paths, package_provider, python_provider):
         assert paths.manifest_cache == (
             tmp_path / "data/nirj/state/target-manifest.json"
         )
         assert package_provider is provider
-        return PackagePlan(
-            desired=("git", "thonny"),
-            install=("thonny",),
-            remove=("obsolete",),
-            unchanged=("git",),
+        assert python_provider is expected_python_provider
+        return ReconciliationPlan(
+            apt=PackagePlan(
+                desired=("git", "thonny"),
+                install=("thonny",),
+                remove=("obsolete",),
+                unchanged=("git",),
+            ),
+            python=PythonPackagePlan(
+                desired=(),
+                install=(),
+                remove=(),
+                unchanged=(),
+            ),
         )
 
     monkeypatch.setattr(cli, "create_plan", create_test_plan)

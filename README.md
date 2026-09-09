@@ -100,6 +100,10 @@ when OverlayFS is active, it requests a writable reboot before persisting those
 files and then restores the configured overlay state. Raspberry Pi
 Desktop/PCManFM, XFCE, and GNOME are supported.
 
+Python packages are installed into /data/nirj/python-venv. Package versions
+must be exact. Packages are installed from PyPI as wheels; direct URLs, Git
+repositories, editable installs, and arbitrary pip options are not accepted.
+
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 
@@ -108,7 +112,11 @@ schema: 1
 apt:
   packages:
     - code
+    - python3-venv
     - sonic-pi
+python:
+  packages:
+    jamkit: "0.1.0"
 desktop:
   shortcuts:
     - vscode

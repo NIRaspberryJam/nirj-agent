@@ -5,7 +5,11 @@ from nirj_agent.manifests import load_manifest
 from nirj_agent.state import load_state
 from nirj_agent.storage.paths import AgentPaths
 
-from .reconciliation import PackagePlan, build_package_plan
+from .reconciliation import (
+    ReconciliationPlan,
+    build_package_plan,
+    build_python_package_plan,
+)
 
 
 class PlanError(RuntimeError):
@@ -16,10 +20,15 @@ class InstalledPackageProvider(Protocol):
     def list_installed(self) -> set[str]: ...
 
 
+class InstalledPythonPackageProvider(Protocol):
+    def list_installed(self) -> dict[str, str]: ...
+
+
 def create_plan(
     paths: AgentPaths,
     package_provider: InstalledPackageProvider,
-) -> PackagePlan:
+    python_provider: InstalledPythonPackageProvider,
+) -> ReconciliationPlan:
     config = load_config(paths.config)
 
     if config.device.type is DeviceType.LAPTOP_WINDOWS:
@@ -29,10 +38,22 @@ def create_plan(
 
     manifest = load_manifest(paths.manifest_cache)
     state = load_state(paths.state)
-    installed = package_provider.list_installed()
 
-    return build_package_plan(
+    apt_plan = build_package_plan(
         manifest=manifest,
-        installed_packages=installed,
+        installed_packages=package_provider.list_installed(),
         previously_managed_packages=set(state.packages),
+    )
+
+    python_plan = build_python_package_plan(
+        manifest=manifest,
+        installed_packages=python_provider.list_installed(),
+        previously_managed_packages={
+            name for name, _version in state.python_packages
+        },
+    )
+
+    return ReconciliationPlan(
+        apt=apt_plan,
+        python=python_plan,
     )

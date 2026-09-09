@@ -8,3 +8,4 @@ class AgentState:
     packages: tuple[str, ...]
     overlay_enabled: bool
     ready: bool
+    python_packages: tuple[tuple[str, str], ...] = ()

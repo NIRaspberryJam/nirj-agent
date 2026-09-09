@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from nirj_agent.config import load_config
 from nirj_agent.manifests.github import GitHubManifestClient
 from nirj_agent.manifests.parser import parse_manifest
-from nirj_agent.providers import AptProvider
+from nirj_agent.providers import AptProvider, PipProvider
 from nirj_agent.services.apply import ApplyResult, apply_manifest
 from nirj_agent.services.manifest import refresh_manifest
 from nirj_agent.state import load_state, save_state
@@ -50,8 +50,9 @@ def check_for_update(
 def apply_target(
     paths: AgentPaths,
     package_provider: AptProvider,
+    python_provider: PipProvider,
 ) -> ApplyResult:
-    result = apply_manifest(paths, package_provider)
+    result = apply_manifest(paths, package_provider, python_provider)
     content = read_bytes(paths.target_manifest)
     write_bytes(paths.current_manifest, content)
     ready_state = replace(result.state, ready=True)
