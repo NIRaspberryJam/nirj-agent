@@ -53,3 +53,15 @@ def test_preference_drift_requires_setup_with_wallpaper_disabled(tmp_path):
     assert desktop_setup_needs_reconcile(paths, False)
     reconcile_desktop_preferences(paths)
     assert not desktop_setup_needs_reconcile(paths, False)
+
+
+def test_hides_mounts_on_both_hdmi_outputs_and_existing_profiles(tmp_path):
+    paths = AgentPaths.sandbox(tmp_path)
+    profile = paths.desktop_dir.parent / ".config/pcmanfm/default"
+    profile.mkdir(parents=True)
+    first = profile / "desktop-items-HDMI-A-1.conf"
+    first.write_text("[*]\nwallpaper=/keep.png\nshow_mounts=1\n[icon]\nx=10\n")
+    reconcile_desktop_preferences(paths)
+    assert first.read_text() == "[*]\nwallpaper=/keep.png\nshow_mounts=0\n[icon]\nx=10\n"
+    assert (profile / "desktop-items-HDMI-A-2.conf").read_text() == "[*]\nshow_mounts=0\n"
+    assert not desktop_preferences_need_reconcile(paths)

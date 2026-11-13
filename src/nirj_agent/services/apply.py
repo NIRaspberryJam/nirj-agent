@@ -15,6 +15,7 @@ from nirj_agent.storage.paths import AgentPaths
 
 from .desktop_shortcuts import SHORTCUT_PACKAGES, reconcile_desktop_shortcuts
 from .python_setup import reconcile_python_setup
+from .vscode import VSCodeSetupError, reconcile_vscode
 from .reconciliation import (
     ReconciliationPlan,
     build_package_plan,
@@ -103,7 +104,7 @@ def apply_manifest(
         def attempt(operation: Callable[[], None]) -> None:
             try:
                 operation()
-            except (AptProviderError, PipProviderError) as exc:
+            except (AptProviderError, PipProviderError, VSCodeSetupError) as exc:
                 logger.error("Manifest operation failed: %s", exc)
                 errors.append(str(exc))
 
@@ -176,7 +177,14 @@ def apply_manifest(
             message = f"Skipped {shortcut} shortcut: required package is not confirmed installed"
             logger.error(message)
             errors.append(message)
-        reconcile_desktop_shortcuts(paths, shortcuts)
+        if manifest.vscode_config_url:
+            if "code" in available_packages:
+                attempt(lambda: reconcile_vscode(paths, manifest))
+            else:
+                errors.append("Skipped VS Code profile: code is not confirmed installed")
+        reconcile_desktop_shortcuts(
+            paths, shortcuts, manifest.vscode_profile if "code" in available_packages else None,
+        )
 
         applied_at = now().astimezone(timezone.utc)
         state = AgentState(

@@ -174,6 +174,52 @@ applies to other executable files opened in PCManFM. The setting is persisted
 through the normal writable-boot setup; log out and back in if the running
 desktop has not picked it up. This does not change single/double-click behaviour.
 
+## Classroom VS Code profile
+
+Reference a separately hosted YAML profile from the Pi manifest:
+
+```yaml
+vscode:
+  config_url: https://raw.githubusercontent.com/NIRaspberryJam/nirj-infra/main/configs/vscode.yaml
+```
+
+This requires `code` in `apt.packages`. Profiles use schema 1 and accept `folder`
+(a normalized path beneath `/home/jam`), `extensions` (publisher.extension IDs),
+`disabled_extensions`, `settings` (VS Code user settings), and `runtime`
+(`password-store`: `basic` or `gnome-libsecret`). The infrastructure example
+configures `/home/jam/jam-day`, Python and Python Debugger, disables built-in AI,
+welcome walkthroughs and GitHub Git authentication, and disables GitHub/Microsoft
+account providers and Copilot in managed desktop/menu launches.
+
+Downloads require HTTPS, have a timeout and a 256 KiB limit, and are validated
+before replacing the target. The downloaded profile is embedded in the cached
+manifest snapshot. Its contents participate in the update hash, so changing the
+profile at the same URL triggers the normal writable-update flow. Pending updates
+use that snapshot across reboots. Publish the profile URL before deploying a
+manifest that references it. Windows manifests reject this Linux-only setting.
+
+The agent merges settings into `/home/jam/.config/Code/User/settings.json` and
+runtime arguments into `/home/jam/.vscode/argv.json`, preserving unrelated values,
+JSON comments, symlinks, permissions and ownership. The existing managed Python
+interpreter is retained. Removed profile settings are not automatically erased.
+Required extensions are installed and verified as the home-directory owner,
+without optional extension-pack/dependency additions; existing extensions are not
+removed. Already installed extensions are retained rather than updated on every
+boot. Marketplace failures leave the update incomplete for retry.
+
+Both the desktop shortcut and managed `code.desktop` menu override open the
+profile's folder in a new window, using `/usr/share/pixmaps/vscode.png` for the
+logo. `jam-day` is created if missing and existing work is never deleted by setup.
+Its session changes reset with root OverlayFS on reboot; it is not stored in
+`/data`. A workspace-trust prompt may still need acknowledgement on first use.
+The `basic` password store avoids VS Code keyring prompts but does not protect
+stored credentials with the OS keyring. Other applications' keyring prompts are
+unaffected. Verify login prompts and Python debugging on a Pi before rollout.
+
+Desktop setup also sets `show_mounts=0` in existing PCManFM monitor profiles and
+seeds both Pi HDMI profiles. All mounted-drive desktop icons are hidden, including
+USB sticks; mounted drives remain accessible through the file manager.
+
 ## Development
 
 ```bash

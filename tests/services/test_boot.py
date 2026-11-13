@@ -314,3 +314,41 @@ def test_shortcut_preference_is_persisted_before_overlay_is_restored(tmp_path):
     result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
     assert result.action == "ready"
     assert overlay.events == []
+
+
+def test_vscode_profile_snapshot_survives_writable_reboot_without_refetch(tmp_path, monkeypatch):
+    import io
+    import json
+    from nirj_agent.manifests import vscode
+    import nirj_agent.services.apply as apply
+    from nirj_agent.services.vscode import reconcile_vscode
+
+    paths = prepare(tmp_path)
+    manifest = (b"schema: 1\napt:\n  packages: [code]\n"
+                b"desktop:\n  shortcuts: [vscode]\n"
+                b"vscode:\n  config_url: https://example.test/vscode.yaml\n")
+    profile = {"schema": 1, "settings": {"chat.disableAIFeatures": True}, "extensions": []}
+    monkeypatch.setattr(vscode, "urlopen", lambda *args, **kwargs: io.BytesIO(json.dumps(profile).encode()))
+    class ProfileClient:
+        def fetch(self, source):
+            return "https://example.test/manifest.yaml", manifest
+    class Code(Packages):
+        def list_installed(self):
+            return {"code"}
+    monkeypatch.setattr(apply, "reconcile_vscode", lambda paths, manifest: reconcile_vscode(paths, manifest))
+    overlay = Overlay(True)
+    first = boot_prep(paths, ProfileClient(), Code(), PythonPackages(), overlay)
+    assert first.action == "update_pending"
+    cached = paths.target_manifest.read_bytes()
+    # The writable boot must apply the validated snapshot without network.
+    def unavailable(*args, **kwargs):
+        raise OSError("network unavailable")
+    monkeypatch.setattr(vscode, "urlopen", unavailable)
+    overlay = Overlay(False)
+    second = boot_prep(paths, ProfileClient(), Code(), PythonPackages(), overlay)
+    assert second.action == "update_applied"
+    assert paths.current_manifest.read_bytes() == cached
+    assert (paths.desktop_dir.parent / "jam-day").is_dir()
+    settings = paths.desktop_dir.parent / ".config/Code/User/settings.json"
+    assert json.loads(settings.read_text())["chat.disableAIFeatures"] is True
+    assert b"jam-day" in (paths.desktop_dir / "visual-studio-code.desktop").read_bytes()

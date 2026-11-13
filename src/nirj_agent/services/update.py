@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from nirj_agent.config import load_config
 from nirj_agent.manifests.github import GitHubManifestClient
 from nirj_agent.manifests.parser import parse_manifest
+from nirj_agent.manifests.vscode import resolve_profile
 from nirj_agent.providers import AptProvider, PipProvider
 from nirj_agent.services.apply import ApplyResult, apply_manifest
 from nirj_agent.services.manifest import refresh_manifest
@@ -32,6 +33,7 @@ def check_for_update(
         source = document.source_url
     else:
         source, content = client.fetch(config.manifest)
+        content = resolve_profile(content, source)
         parse_manifest(content, source)
         target_hash = hashlib.sha256(content).hexdigest()
 

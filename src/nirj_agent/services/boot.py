@@ -19,6 +19,7 @@ from .desktop_setup import (
     desktop_setup_needs_reconcile,
     reconcile_desktop_setup,
 )
+from .vscode import vscode_setup_needs_reconcile
 from .overlay import OverlayManager
 from .apply import PartialApplyError
 from .update import apply_target, check_for_update
@@ -83,9 +84,10 @@ def boot_prep(
         check = check_for_update(paths, client, persist_target=True)
         target_manifest = parse_manifest(paths.target_manifest.read_bytes())
         shortcuts_required = desktop_shortcuts_need_reconcile(
-            paths, target_manifest.desktop.shortcuts,
+            paths, target_manifest.desktop.shortcuts, target_manifest.vscode_profile,
         )
-        if check.update_available or shortcuts_required or load_state(paths.state).errors:
+        vscode_required = vscode_setup_needs_reconcile(paths, target_manifest)
+        if check.update_available or shortcuts_required or vscode_required or load_state(paths.state).errors:
             save_update_state(
                 UpdateState(UpdatePhase.PENDING, check.target_hash),
                 paths.update_state,

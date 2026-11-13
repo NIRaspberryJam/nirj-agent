@@ -166,8 +166,24 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             "apt.packages"
         )
 
+    vscode = require_mapping(root.get("vscode", {}), "vscode", source)
+    config_url = vscode.get("config_url")
+    profile = None
+    if vscode:
+        from .vscode import validate_profile, validate_url
+        try:
+            config_url = validate_url(config_url)
+            if "code" not in packages:
+                raise ValueError("vscode.config_url requires code in apt.packages")
+            if "_profile" in vscode:
+                profile = validate_profile(vscode["_profile"])
+        except (ValueError, TypeError) as exc:
+            raise ManifestError(f"Invalid VS Code configuration in {source}: {exc}") from exc
+
     return Manifest(
         schema=schema,
+        vscode_config_url=config_url,
+        vscode_profile=profile,
         apt=AptManifest(
             enforce=read_boolean(apt, "enforce", False, source),
             packages=tuple(dict.fromkeys(packages)),
