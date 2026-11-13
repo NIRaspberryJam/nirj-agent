@@ -167,6 +167,13 @@ desktop session; no HDMI or USB device names are configured. HDMI playback
 has been verified on one Pi; USB playback and live output switching still
 require device testing. Removing the shortcut also removes the menu override.
 
+The agent also sets `[config] quick_exec=1` in
+`/home/jam/.config/libfm/libfm.conf`, preserving other preferences. This makes
+PCManFM launch desktop shortcuts directly without the Execute dialog. It also
+applies to other executable files opened in PCManFM. The setting is persisted
+through the normal writable-boot setup; log out and back in if the running
+desktop has not picked it up. This does not change single/double-click behaviour.
+
 ## Development
 
 ```bash

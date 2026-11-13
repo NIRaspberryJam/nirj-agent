@@ -5,6 +5,7 @@ from PIL import Image
 from nirj_agent.config import DeviceType, create_config
 from nirj_agent.services.boot import boot_prep
 from nirj_agent.services.desktop_setup import AUTOSTART_CONTENT
+from nirj_agent.services.desktop_preferences import reconcile_desktop_preferences
 from nirj_agent.services.overlay import OverlayStatus
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.update import UpdatePhase, UpdateState, load_update_state, save_update_state
@@ -54,6 +55,8 @@ class Overlay:
 
 def prepare(tmp_path):
     paths = AgentPaths.sandbox(tmp_path)
+    paths.desktop_dir.parent.mkdir(parents=True, exist_ok=True)
+    reconcile_desktop_preferences(paths)
     create_config("PI5-001", DeviceType.PI5, paths.config)
     paths.source_background.parent.mkdir(parents=True)
     Image.new("RGB", (640, 360), "black").save(paths.source_background)
@@ -286,3 +289,28 @@ def test_partial_package_failure_keeps_agent_startable_and_retries(tmp_path):
     assert load_state(paths.state).ready
     assert not load_state(paths.state).errors
     assert load_update_state(paths.update_state).state is UpdatePhase.NORMAL
+
+
+def test_shortcut_preference_is_persisted_before_overlay_is_restored(tmp_path):
+    paths = prepare(tmp_path)
+    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_manifest.write_bytes(MANIFEST)
+    preference = paths.desktop_dir.parent / ".config/libfm/libfm.conf"
+    preference.write_text("[config]\nquick_exec=0\nterminal=lxterminal\n")
+
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
+    assert result.action == "waiting_for_writable_desktop_setup"
+    assert overlay.events == ["disable", "reboot"]
+    assert "quick_exec=0" in preference.read_text()
+
+    overlay = Overlay(active=False)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
+    assert result.action == "enabling_overlay"
+    assert overlay.events == ["enable", "reboot"]
+    assert preference.read_text() == "[config]\nquick_exec=1\nterminal=lxterminal\n"
+
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
+    assert result.action == "ready"
+    assert overlay.events == []

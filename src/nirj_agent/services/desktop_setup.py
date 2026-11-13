@@ -2,6 +2,10 @@ from pathlib import Path
 
 from nirj_agent.storage.files import FileStoreError, write_bytes
 from nirj_agent.storage.paths import AgentPaths
+from .desktop_preferences import (
+    desktop_preferences_need_reconcile,
+    reconcile_desktop_preferences,
+)
 from .python_setup import python_setup_needs_reconcile, reconcile_python_setup
 
 
@@ -22,7 +26,7 @@ def desktop_setup_needs_reconcile(
     paths: AgentPaths,
     enabled: bool,
 ) -> bool:
-    if python_setup_needs_reconcile(paths):
+    if desktop_preferences_need_reconcile(paths) or python_setup_needs_reconcile(paths):
         return True
     if not enabled:
         return paths.wallpaper_autostart.exists()
@@ -36,6 +40,7 @@ def desktop_setup_needs_reconcile(
 
 def reconcile_desktop_setup(paths: AgentPaths, enabled: bool) -> None:
     try:
+        reconcile_desktop_preferences(paths)
         reconcile_python_setup(paths)
         if enabled:
             source = _read_required(paths.source_background)
@@ -45,7 +50,7 @@ def reconcile_desktop_setup(paths: AgentPaths, enabled: bool) -> None:
             paths.wallpaper_autostart.unlink(missing_ok=True)
     except (OSError, FileStoreError) as exc:
         raise DesktopSetupError(
-            f"Could not reconcile wallpaper desktop setup: {exc}"
+            f"Could not reconcile desktop setup: {exc}"
         ) from exc
 
 
