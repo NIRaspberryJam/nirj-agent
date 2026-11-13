@@ -2,6 +2,7 @@ from pathlib import Path
 
 from nirj_agent.storage.files import FileStoreError, write_bytes
 from nirj_agent.storage.paths import AgentPaths
+from .python_setup import python_setup_needs_reconcile, reconcile_python_setup
 
 
 AUTOSTART_CONTENT = b"""[Desktop Entry]
@@ -21,6 +22,8 @@ def desktop_setup_needs_reconcile(
     paths: AgentPaths,
     enabled: bool,
 ) -> bool:
+    if python_setup_needs_reconcile(paths):
+        return True
     if not enabled:
         return paths.wallpaper_autostart.exists()
 
@@ -33,6 +36,7 @@ def desktop_setup_needs_reconcile(
 
 def reconcile_desktop_setup(paths: AgentPaths, enabled: bool) -> None:
     try:
+        reconcile_python_setup(paths)
         if enabled:
             source = _read_required(paths.source_background)
             write_bytes(paths.base_background, source)

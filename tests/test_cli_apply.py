@@ -3,7 +3,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from nirj_agent.providers import AptProviderError
-from nirj_agent.services.reconciliation import PackagePlan
+from nirj_agent.services.reconciliation import (
+    PackagePlan,
+    PythonPackagePlan,
+    ReconciliationPlan,
+)
 from nirj_agent.state import AgentState
 
 
@@ -31,24 +35,39 @@ def test_apply_requires_root(monkeypatch, capsys) -> None:
 def test_apply_prints_result(monkeypatch, capsys) -> None:
     monkeypatch.setattr(cli.os, "geteuid", lambda: 0)
     provider = object()
+    expected_python_provider = object()
     monkeypatch.setattr(cli, "AptProvider", lambda: provider)
-    plan = PackagePlan(
-        desired=("git", "thonny"),
-        install=("thonny",),
-        remove=("obsolete",),
-        unchanged=("git",),
+    monkeypatch.setattr(
+        cli,
+        "PipProvider",
+        lambda _path: expected_python_provider,
+    )
+    plan = ReconciliationPlan(
+        apt=PackagePlan(
+            desired=("git", "thonny"),
+            install=("thonny",),
+            remove=("obsolete",),
+            unchanged=("git",),
+        ),
+        python=PythonPackagePlan(
+            desired=(("jamkit", "0.1.0"),),
+            install=("jamkit==0.1.0",),
+            remove=(),
+            unchanged=(),
+        ),
     )
     state = AgentState(
         manifest_hash="abc123",
         last_apply="2026-07-01T12:30:00Z",
-        packages=plan.desired,
+        packages=plan.apt.desired,
         overlay_enabled=False,
         ready=False,
     )
 
-    def apply_test_manifest(paths, package_provider):
+    def apply_test_manifest(paths, package_provider, python_provider):
         assert paths.config == Path("/data/nirj/config/config.yaml")
         assert package_provider is provider
+        assert python_provider is expected_python_provider
         return SimpleNamespace(plan=plan, state=state)
 
     monkeypatch.setattr(cli, "apply_manifest", apply_test_manifest)

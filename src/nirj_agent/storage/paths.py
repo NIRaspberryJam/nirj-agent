@@ -21,6 +21,7 @@ class AgentPaths:
     wallpaper_autostart: Path
     desktop_dir: Path
     applications_dir: Path
+    python_environment: Path
 
     @classmethod
     def system(cls) -> "AgentPaths":
@@ -66,6 +67,7 @@ class AgentPaths:
             ),
             desktop_dir=Path("/home/jam/Desktop"),
             applications_dir=Path("/usr/local/share/applications"),
+            python_environment=Path("/data/nirj/python-venv"),
         )
 
     @classmethod
@@ -87,6 +89,7 @@ class AgentPaths:
             wallpaper_autostart=root / "config/wallpaper",
             desktop_dir=public_desktop,
             applications_dir=root / "applications",
+            python_environment=root / "python-venv",
         )
 
     @classmethod
@@ -117,6 +120,7 @@ class AgentPaths:
             ),
             desktop_dir=root / "home/jam/Desktop",
             applications_dir=root / "usr/local/share/applications",
+            python_environment=data_root / "python-venv",
         )
 
 

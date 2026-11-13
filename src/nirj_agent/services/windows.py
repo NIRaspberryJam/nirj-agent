@@ -60,6 +60,8 @@ def _unsupported_settings(manifest: Manifest) -> tuple[str, ...]:
         unsupported.append("apt.enforce")
     if manifest.apt.packages:
         unsupported.append("apt.packages")
+    if manifest.python.packages:
+        unsupported.append("python.packages")
     if manifest.desktop.shortcuts:
         unsupported.append("desktop.shortcuts")
     if manifest.overlay_enabled:

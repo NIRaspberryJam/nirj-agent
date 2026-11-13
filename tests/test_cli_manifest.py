@@ -18,6 +18,7 @@ def test_manifest_refresh_prints_summary(tmp_path: Path, monkeypatch, capsys) ->
             manifest=SimpleNamespace(
                 schema=1,
                 apt=SimpleNamespace(packages=("git", "thonny")),
+                python=SimpleNamespace(packages=()),
             ),
             sha256="abc123",
             source_url="https://example.test/manifest.yaml",
@@ -29,7 +30,8 @@ def test_manifest_refresh_prints_summary(tmp_path: Path, monkeypatch, capsys) ->
     output = capsys.readouterr()
     assert result == 0
     assert '"sha256": "abc123"' in output.out
-    assert '"packages": 2' in output.out
+    assert '"apt_packages": 2' in output.out
+    assert '"python_packages": 0' in output.out
     assert str(tmp_path / "data/nirj/state/target-manifest.json") in output.out
     assert output.err == ""
 

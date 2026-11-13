@@ -21,6 +21,36 @@ def test_overlay_status_uses_findmnt_and_raspi_config() -> None:
     assert calls[1][0] == ["raspi-config", "nonint", "get_overlay_now"]
 
 
+@pytest.mark.parametrize("filesystem, active", [("ext4", False), ("overlay", True)])
+def test_overlay_status_without_raspi_config(filesystem, active) -> None:
+    def run(args, **kwargs):
+        if args[0] == "raspi-config":
+            raise FileNotFoundError("raspi-config")
+        return SimpleNamespace(returncode=0, stdout=filesystem + "\n")
+
+    status = OverlayManager(run).status()
+
+    assert status.active is active
+    assert status.configured is None
+
+
+@pytest.mark.parametrize(
+    "command, error",
+    [("findmnt", FileNotFoundError("findmnt")),
+     ("raspi-config", PermissionError("permission denied"))],
+)
+def test_overlay_status_preserves_other_errors(command, error) -> None:
+    def run(args, **kwargs):
+        if args[0] == command:
+            raise error
+        return SimpleNamespace(returncode=0, stdout="ext4\n")
+
+    with pytest.raises(OverlayError) as caught:
+        OverlayManager(run).status()
+
+    assert caught.value.__cause__ is error
+
+
 def test_overlay_transitions_and_reboot_commands(tmp_path) -> None:
     calls = []
     cmdline = tmp_path / "cmdline.txt"
