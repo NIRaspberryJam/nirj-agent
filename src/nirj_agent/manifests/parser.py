@@ -97,6 +97,12 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             "apt.packages"
         )
 
+    if "sonic-pi" in shortcuts and "pipewire-jack" not in packages:
+        raise ManifestError(
+            f"desktop shortcut sonic-pi in {source} requires pipewire-jack in "
+            "apt.packages"
+        )
+
     return Manifest(
         schema=schema,
         apt=AptManifest(

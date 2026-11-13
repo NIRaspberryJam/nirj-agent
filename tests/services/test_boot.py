@@ -167,3 +167,36 @@ def test_desktop_setup_is_persisted_on_writable_boot(tmp_path) -> None:
         paths.base_background.read_bytes()
         == paths.source_background.read_bytes()
     )
+
+
+def test_boot_repairs_stale_shortcuts_even_when_manifest_unchanged(tmp_path) -> None:
+    manifest = (
+        b"schema: 1\napt:\n  packages: [sonic-pi, pipewire-jack]\n"
+        b"desktop:\n  shortcuts: [sonic-pi]\n"
+    )
+
+    class SonicClient:
+        def fetch(self, _source):
+            return "https://example.test/manifest.yaml", manifest
+
+    class SonicPackages(Packages):
+        def list_installed(self):
+            return {"sonic-pi", "pipewire-jack"}
+
+    paths = prepare(tmp_path)
+    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_manifest.write_bytes(manifest)
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), overlay)
+    assert result.action == "update_pending"
+    assert overlay.events == ["disable", "reboot"]
+
+    overlay = Overlay(active=False)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), overlay)
+    assert result.action == "update_applied"
+    assert b"pw-jack" in (paths.applications_dir / "sonic-pi.desktop").read_bytes()
+
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), overlay)
+    assert result.action == "ready"
+    assert overlay.events == []

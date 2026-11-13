@@ -19,7 +19,7 @@ SONIC_PI_DESKTOP_ENTRY = b"""[Desktop Entry]
 Version=1.0
 Type=Application
 Name=Sonic Pi
-Exec=/usr/bin/sonic-pi
+Exec=/usr/bin/pw-jack /usr/bin/sonic-pi
 Icon=sonic-pi
 Terminal=false
 Categories=AudioVideo;Audio;Development;
@@ -45,6 +45,31 @@ SHORTCUTS = {
 }
 
 
+SHORTCUT_PACKAGES = {
+    "vscode": frozenset({"code"}),
+    "sonic-pi": frozenset({"sonic-pi", "pipewire-jack"}),
+}
+
+
+def desktop_shortcuts_need_reconcile(paths: AgentPaths, desired: tuple[str, ...]) -> bool:
+    try:
+        for shortcut_id, shortcut in SHORTCUTS.items():
+            path = paths.desktop_dir / shortcut.filename
+            if shortcut_id in desired:
+                if not path.exists() or path.read_bytes() != shortcut.content:
+                    return True
+                if path.stat().st_mode & 0o777 != 0o755:
+                    return True
+            elif path.exists():
+                return True
+        menu = paths.applications_dir / "sonic-pi.desktop"
+        if "sonic-pi" in desired:
+            return not menu.exists() or menu.read_bytes() != SONIC_PI_DESKTOP_ENTRY
+        return menu.exists()
+    except OSError as exc:
+        raise DesktopShortcutError(f"Could not inspect desktop shortcuts: {exc}") from exc
+
+
 class DesktopShortcutError(RuntimeError):
     pass
 
@@ -64,6 +89,12 @@ def reconcile_desktop_shortcuts(
                 path.chmod(0o755)
             else:
                 path.unlink(missing_ok=True)
+        menu = paths.applications_dir / "sonic-pi.desktop"
+        if "sonic-pi" in desired_set:
+            write_bytes(menu, SONIC_PI_DESKTOP_ENTRY)
+            menu.chmod(0o644)
+        else:
+            menu.unlink(missing_ok=True)
     except (OSError, FileStoreError) as exc:
         raise DesktopShortcutError(
             f"Could not reconcile desktop shortcuts: {exc}"
