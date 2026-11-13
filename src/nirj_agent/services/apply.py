@@ -38,7 +38,9 @@ class PackageApplyProvider(Protocol):
 
     def update(self) -> None: ...
 
-    def install(self, packages: tuple[str, ...]) -> None: ...
+    def install(
+        self, packages: tuple[str, ...], *, allow_dependency_removals: bool = False,
+    ) -> None: ...
 
     def remove(self, packages: tuple[str, ...]) -> None: ...
 
@@ -109,7 +111,15 @@ def apply_manifest(
         if apt_plan.install:
             def install_apt() -> None:
                 package_provider.update()
-                package_provider.install(apt_plan.install)
+                allowed = set(manifest.apt.allow_dependency_removals)
+                ordinary = tuple(name for name in apt_plan.install if name not in allowed)
+                if ordinary:
+                    attempt(lambda: package_provider.install(ordinary))
+                for name in apt_plan.install:
+                    if name in allowed:
+                        attempt(lambda name=name: package_provider.install(
+                            (name,), allow_dependency_removals=True,
+                        ))
 
             attempt(install_apt)
 

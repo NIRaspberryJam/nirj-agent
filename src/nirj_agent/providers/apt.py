@@ -51,12 +51,16 @@ class AptProvider:
     def update(self) -> None:
         self._run_apt(["apt-get", "update"], "apt-get update")
 
-    def install(self, packages: tuple[str, ...]) -> None:
+    def install(
+        self, packages: tuple[str, ...], *, allow_dependency_removals: bool = False,
+    ) -> None:
         if not packages:
             return
 
         self._run_apt(
-            ["apt-get", "install", "--yes", "--no-remove", "--", *packages],
+            ["apt-get", "install", "--yes",
+             *([] if allow_dependency_removals else ["--no-remove"]),
+             "--", *packages],
             "package installation",
         )
 

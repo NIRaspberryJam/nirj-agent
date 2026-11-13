@@ -111,3 +111,14 @@ def test_apt_operation_timeout_is_wrapped() -> None:
 
     with pytest.raises(AptProviderError, match="Unable to run package removal"):
         AptProvider(runner=runner).remove(("obsolete",))
+
+
+def test_install_can_explicitly_allow_dependency_removals() -> None:
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    AptProvider(runner=runner).install(("pipewire-jack",), allow_dependency_removals=True)
+    assert calls == [["apt-get", "install", "--yes", "--", "pipewire-jack"]]

@@ -193,3 +193,22 @@ def test_parse_manifest_defaults_to_no_python_packages() -> None:
     manifest = parse_manifest(b"schema: 1\n")
 
     assert manifest.python.packages == ()
+
+
+def test_dependency_removal_permissions_default_and_deduplicate():
+    assert parse_manifest(b"schema: 1\n").apt.allow_dependency_removals == ()
+    manifest = parse_manifest(
+        b"schema: 1\napt:\n  packages: [pipewire-jack]\n"
+        b"  allow_dependency_removals: [pipewire-jack, pipewire-jack]\n"
+    )
+    assert manifest.apt.allow_dependency_removals == ("pipewire-jack",)
+
+
+@pytest.mark.parametrize("value", [True, "pipewire-jack", ["--bad"], [1], ["absent"], {}])
+def test_rejects_invalid_dependency_removal_permissions(value):
+    import yaml
+    content = yaml.safe_dump({"schema": 1, "apt": {
+        "packages": ["pipewire-jack"], "allow_dependency_removals": value,
+    }}).encode()
+    with pytest.raises(ManifestError, match="apt.allow_dependency_removals"):
+        parse_manifest(content)

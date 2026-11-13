@@ -123,6 +123,23 @@ OverlayFS. Retry with `nirj-agent update apply` or restart the service after
 fixing the package/repository issue; there is no periodic retry loop.
 Explicit apply commands return a failure exit status for partial updates.
 
+APT installs block dependency removals by default. To permit replacements when
+installing specific packages, list them in `apt.allow_dependency_removals`:
+
+```yaml
+apt:
+  packages: [sonic-pi, pipewire-jack]
+  allow_dependency_removals: [pipewire-jack]
+```
+
+Every allowlisted package must also appear in `apt.packages`. Ordinary packages
+are installed with `--no-remove`; allowlisted packages are installed separately,
+one at a time, without that restriction. This permits any removal APT requires
+for that installation, rather than allowing removal of specific dependency names.
+It is independent of `apt.enforce`, which governs previously managed packages
+omitted from the manifest. The permission is used only when a package needs
+installation; it does not trigger upgrades of already-installed packages.
+
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 

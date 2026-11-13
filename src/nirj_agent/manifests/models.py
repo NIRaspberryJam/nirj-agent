@@ -8,6 +8,7 @@ SUPPORTED_DESKTOP_SHORTCUTS = frozenset({"sonic-pi", "vscode"})
 class AptManifest:
     enforce: bool
     packages: tuple[str, ...]
+    allow_dependency_removals: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

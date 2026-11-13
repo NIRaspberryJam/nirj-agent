@@ -76,6 +76,19 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             f"apt.packages in {source} must be a list of package names"
         )
 
+    allowed_removals = apt.get("allow_dependency_removals", [])
+    if not isinstance(allowed_removals, list) or not all(
+        isinstance(package, str) and PACKAGE_NAME_PATTERN.fullmatch(package)
+        for package in allowed_removals
+    ):
+        raise ManifestError(
+            f"apt.allow_dependency_removals in {source} must be a list of package names"
+        )
+    if not set(allowed_removals) <= set(packages):
+        raise ManifestError(
+            f"apt.allow_dependency_removals in {source} must only contain packages in apt.packages"
+        )
+
     python = require_mapping(root.get("python", {}), "python", source)
     raw_python_packages = require_mapping(
         python.get("packages", {}),
@@ -158,6 +171,7 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
         apt=AptManifest(
             enforce=read_boolean(apt, "enforce", False, source),
             packages=tuple(dict.fromkeys(packages)),
+            allow_dependency_removals=tuple(dict.fromkeys(allowed_removals)),
         ),
         python=PythonManifest(
             packages=tuple(sorted(python_packages.items())),
