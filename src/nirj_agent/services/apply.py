@@ -13,7 +13,7 @@ from nirj_agent.storage.files import read_bytes
 from nirj_agent.storage.lock import exclusive_lock
 from nirj_agent.storage.paths import AgentPaths
 
-from .desktop_shortcuts import reconcile_desktop_shortcuts
+from .desktop_shortcuts import SHORTCUT_PACKAGES, reconcile_desktop_shortcuts
 from .python_setup import reconcile_python_setup
 from .reconciliation import (
     ReconciliationPlan,
@@ -158,10 +158,9 @@ def apply_manifest(
                 python_packages = tuple(sorted(managed.items()))
 
         reconcile_python_setup(paths)
-        required_packages = {"vscode": "code", "sonic-pi": "sonic-pi"}
         shortcuts = tuple(
             shortcut for shortcut in manifest.desktop.shortcuts
-            if required_packages[shortcut] in available_packages
+            if SHORTCUT_PACKAGES[shortcut] <= available_packages
         )
         for shortcut in set(manifest.desktop.shortcuts) - set(shortcuts):
             message = f"Skipped {shortcut} shortcut: required package is not confirmed installed"

@@ -182,6 +182,38 @@ def test_desktop_setup_is_persisted_on_writable_boot(tmp_path) -> None:
     )
 
 
+def test_boot_repairs_stale_shortcuts_even_when_manifest_unchanged(tmp_path) -> None:
+    manifest = (
+        b"schema: 1\napt:\n  packages: [sonic-pi, pipewire-jack]\n"
+        b"desktop:\n  shortcuts: [sonic-pi]\n"
+    )
+
+    class SonicClient:
+        def fetch(self, _source):
+            return "https://example.test/manifest.yaml", manifest
+
+    class SonicPackages(Packages):
+        def list_installed(self):
+            return {"sonic-pi", "pipewire-jack"}
+
+    paths = prepare(tmp_path)
+    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_manifest.write_bytes(manifest)
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
+    assert result.action == "update_pending"
+    assert overlay.events == ["disable", "reboot"]
+
+    overlay = Overlay(active=False)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
+    assert result.action == "update_applied"
+    assert b"pw-jack" in (paths.applications_dir / "sonic-pi.desktop").read_bytes()
+
+    overlay = Overlay(active=True)
+    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
+    assert result.action == "ready"
+    assert overlay.events == []
+
 def test_partial_package_failure_keeps_agent_startable_and_retries(tmp_path):
     from nirj_agent.config.store import set_config_value
     from nirj_agent.providers import AptProviderError

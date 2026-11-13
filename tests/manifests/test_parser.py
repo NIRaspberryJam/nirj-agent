@@ -139,7 +139,7 @@ def test_parse_manifest_requires_code_for_vscode_shortcut() -> None:
 def test_parse_manifest_accepts_sonic_pi_shortcut_with_package() -> None:
     content = (
         b"schema: 1\n"
-        b"apt:\n  packages: [sonic-pi]\n"
+        b"apt:\n  packages: [sonic-pi, pipewire-jack]\n"
         b"desktop:\n  shortcuts: [sonic-pi]\n"
     )
 
@@ -156,6 +156,11 @@ def test_parse_manifest_requires_sonic_pi_for_shortcut() -> None:
         match="requires sonic-pi in apt.packages",
     ):
         parse_manifest(content)
+
+
+def test_sonic_pi_shortcut_requires_pipewire_jack() -> None:
+    with pytest.raises(ManifestError, match="requires pipewire-jack"):
+        parse_manifest(b"schema: 1\napt:\n  packages: [sonic-pi]\ndesktop:\n  shortcuts: [sonic-pi]\n")
 
 @pytest.mark.parametrize(
     "packages",

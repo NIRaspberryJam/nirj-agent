@@ -133,6 +133,7 @@ apt:
     - code
     - python3-venv
     - sonic-pi
+    - pipewire-jack
 python:
   packages:
     jamkit: "0.1.0"
@@ -141,6 +142,13 @@ desktop:
     - vscode
     - sonic-pi
 ```
+
+Sonic Pi shortcuts require both `sonic-pi` and `pipewire-jack`. The agent
+launches Sonic Pi through `pw-jack` from the desktop shortcut and a managed
+`/usr/local/share/applications/sonic-pi.desktop` menu override. Audio uses the
+desktop session; no HDMI or USB device names are configured. HDMI playback
+has been verified on one Pi; USB playback and live output switching still
+require device testing. Removing the shortcut also removes the menu override.
 
 ## Development
 

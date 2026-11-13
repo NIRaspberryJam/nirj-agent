@@ -20,6 +20,7 @@ class AgentPaths:
     source_background: Path
     wallpaper_autostart: Path
     desktop_dir: Path
+    applications_dir: Path
     python_environment: Path
 
     @classmethod
@@ -65,6 +66,7 @@ class AgentPaths:
                 "/etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
             desktop_dir=Path("/home/jam/Desktop"),
+            applications_dir=Path("/usr/local/share/applications"),
             python_environment=Path("/data/nirj/python-venv"),
         )
 
@@ -86,6 +88,7 @@ class AgentPaths:
             source_background=root / "agent-repo/assets/background-base.png",
             wallpaper_autostart=root / "config/wallpaper",
             desktop_dir=public_desktop,
+            applications_dir=root / "applications",
             python_environment=root / "python-venv",
         )
 
@@ -116,6 +119,7 @@ class AgentPaths:
                 root / "etc/xdg/autostart/nirj-wallpaper.desktop"
             ),
             desktop_dir=root / "home/jam/Desktop",
+            applications_dir=root / "usr/local/share/applications",
             python_environment=data_root / "python-venv",
         )
 

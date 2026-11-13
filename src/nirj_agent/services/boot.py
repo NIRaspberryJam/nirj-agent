@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, replace
 
 from nirj_agent.config import load_config
+from nirj_agent.manifests.parser import parse_manifest
 from nirj_agent.manifests.github import GitHubManifestClient
 from nirj_agent.providers import AptProvider, PipProvider
 from nirj_agent.state import load_state, save_state
@@ -13,6 +14,7 @@ from nirj_agent.update import (
     save_update_state,
 )
 
+from .desktop_shortcuts import desktop_shortcuts_need_reconcile
 from .desktop_setup import (
     desktop_setup_needs_reconcile,
     reconcile_desktop_setup,
@@ -79,7 +81,11 @@ def boot_prep(
             return result
 
         check = check_for_update(paths, client, persist_target=True)
-        if check.update_available or load_state(paths.state).errors:
+        target_manifest = parse_manifest(paths.target_manifest.read_bytes())
+        shortcuts_required = desktop_shortcuts_need_reconcile(
+            paths, target_manifest.desktop.shortcuts,
+        )
+        if check.update_available or shortcuts_required or load_state(paths.state).errors:
             save_update_state(
                 UpdateState(UpdatePhase.PENDING, check.target_hash),
                 paths.update_state,
