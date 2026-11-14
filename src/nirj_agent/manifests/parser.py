@@ -76,19 +76,6 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             f"apt.packages in {source} must be a list of package names"
         )
 
-    allowed_removals = apt.get("allow_dependency_removals", [])
-    if not isinstance(allowed_removals, list) or not all(
-        isinstance(package, str) and PACKAGE_NAME_PATTERN.fullmatch(package)
-        for package in allowed_removals
-    ):
-        raise ManifestError(
-            f"apt.allow_dependency_removals in {source} must be a list of package names"
-        )
-    if not set(allowed_removals) <= set(packages):
-        raise ManifestError(
-            f"apt.allow_dependency_removals in {source} must only contain packages in apt.packages"
-        )
-
     python = require_mapping(root.get("python", {}), "python", source)
     raw_python_packages = require_mapping(
         python.get("packages", {}),
@@ -160,34 +147,11 @@ def manifest_from_mapping(data: object, source: str) -> Manifest:
             "apt.packages"
         )
 
-    if "sonic-pi" in shortcuts and "pipewire-jack" not in packages:
-        raise ManifestError(
-            f"desktop shortcut sonic-pi in {source} requires pipewire-jack in "
-            "apt.packages"
-        )
-
-    vscode = require_mapping(root.get("vscode", {}), "vscode", source)
-    config_url = vscode.get("config_url")
-    profile = None
-    if vscode:
-        from .vscode import validate_profile, validate_url
-        try:
-            config_url = validate_url(config_url)
-            if "code" not in packages:
-                raise ValueError("vscode.config_url requires code in apt.packages")
-            if "_profile" in vscode:
-                profile = validate_profile(vscode["_profile"])
-        except (ValueError, TypeError) as exc:
-            raise ManifestError(f"Invalid VS Code configuration in {source}: {exc}") from exc
-
     return Manifest(
         schema=schema,
-        vscode_config_url=config_url,
-        vscode_profile=profile,
         apt=AptManifest(
             enforce=read_boolean(apt, "enforce", False, source),
             packages=tuple(dict.fromkeys(packages)),
-            allow_dependency_removals=tuple(dict.fromkeys(allowed_removals)),
         ),
         python=PythonManifest(
             packages=tuple(sorted(python_packages.items())),

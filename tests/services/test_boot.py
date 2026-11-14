@@ -5,7 +5,6 @@ from PIL import Image
 from nirj_agent.config import DeviceType, create_config
 from nirj_agent.services.boot import boot_prep
 from nirj_agent.services.desktop_setup import AUTOSTART_CONTENT
-from nirj_agent.services.desktop_preferences import reconcile_desktop_preferences
 from nirj_agent.services.overlay import OverlayStatus
 from nirj_agent.storage.paths import AgentPaths
 from nirj_agent.update import UpdatePhase, UpdateState, load_update_state, save_update_state
@@ -55,8 +54,6 @@ class Overlay:
 
 def prepare(tmp_path):
     paths = AgentPaths.sandbox(tmp_path)
-    paths.desktop_dir.parent.mkdir(parents=True, exist_ok=True)
-    reconcile_desktop_preferences(paths)
     create_config("PI5-001", DeviceType.PI5, paths.config)
     paths.source_background.parent.mkdir(parents=True)
     Image.new("RGB", (640, 360), "black").save(paths.source_background)
@@ -185,38 +182,6 @@ def test_desktop_setup_is_persisted_on_writable_boot(tmp_path) -> None:
     )
 
 
-def test_boot_repairs_stale_shortcuts_even_when_manifest_unchanged(tmp_path) -> None:
-    manifest = (
-        b"schema: 1\napt:\n  packages: [sonic-pi, pipewire-jack]\n"
-        b"desktop:\n  shortcuts: [sonic-pi]\n"
-    )
-
-    class SonicClient:
-        def fetch(self, _source):
-            return "https://example.test/manifest.yaml", manifest
-
-    class SonicPackages(Packages):
-        def list_installed(self):
-            return {"sonic-pi", "pipewire-jack"}
-
-    paths = prepare(tmp_path)
-    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
-    paths.current_manifest.write_bytes(manifest)
-    overlay = Overlay(active=True)
-    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
-    assert result.action == "update_pending"
-    assert overlay.events == ["disable", "reboot"]
-
-    overlay = Overlay(active=False)
-    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
-    assert result.action == "update_applied"
-    assert b"pw-jack" in (paths.applications_dir / "sonic-pi.desktop").read_bytes()
-
-    overlay = Overlay(active=True)
-    result = boot_prep(paths, SonicClient(), SonicPackages(), PythonPackages(), overlay)
-    assert result.action == "ready"
-    assert overlay.events == []
-
 def test_partial_package_failure_keeps_agent_startable_and_retries(tmp_path):
     from nirj_agent.config.store import set_config_value
     from nirj_agent.providers import AptProviderError
@@ -289,66 +254,3 @@ def test_partial_package_failure_keeps_agent_startable_and_retries(tmp_path):
     assert load_state(paths.state).ready
     assert not load_state(paths.state).errors
     assert load_update_state(paths.update_state).state is UpdatePhase.NORMAL
-
-
-def test_shortcut_preference_is_persisted_before_overlay_is_restored(tmp_path):
-    paths = prepare(tmp_path)
-    paths.current_manifest.parent.mkdir(parents=True, exist_ok=True)
-    paths.current_manifest.write_bytes(MANIFEST)
-    preference = paths.desktop_dir.parent / ".config/libfm/libfm.conf"
-    preference.write_text("[config]\nquick_exec=0\nterminal=lxterminal\n")
-
-    overlay = Overlay(active=True)
-    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
-    assert result.action == "waiting_for_writable_desktop_setup"
-    assert overlay.events == ["disable", "reboot"]
-    assert "quick_exec=0" in preference.read_text()
-
-    overlay = Overlay(active=False)
-    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
-    assert result.action == "enabling_overlay"
-    assert overlay.events == ["enable", "reboot"]
-    assert preference.read_text() == "[config]\nquick_exec=1\nterminal=lxterminal\n"
-
-    overlay = Overlay(active=True)
-    result = boot_prep(paths, Client(), Packages(), PythonPackages(), overlay)
-    assert result.action == "ready"
-    assert overlay.events == []
-
-
-def test_vscode_profile_snapshot_survives_writable_reboot_without_refetch(tmp_path, monkeypatch):
-    import io
-    import json
-    from nirj_agent.manifests import vscode
-    import nirj_agent.services.apply as apply
-    from nirj_agent.services.vscode import reconcile_vscode
-
-    paths = prepare(tmp_path)
-    manifest = (b"schema: 1\napt:\n  packages: [code]\n"
-                b"desktop:\n  shortcuts: [vscode]\n"
-                b"vscode:\n  config_url: https://example.test/vscode.yaml\n")
-    profile = {"schema": 1, "settings": {"chat.disableAIFeatures": True}, "extensions": []}
-    monkeypatch.setattr(vscode, "urlopen", lambda *args, **kwargs: io.BytesIO(json.dumps(profile).encode()))
-    class ProfileClient:
-        def fetch(self, source):
-            return "https://example.test/manifest.yaml", manifest
-    class Code(Packages):
-        def list_installed(self):
-            return {"code"}
-    monkeypatch.setattr(apply, "reconcile_vscode", lambda paths, manifest: reconcile_vscode(paths, manifest))
-    overlay = Overlay(True)
-    first = boot_prep(paths, ProfileClient(), Code(), PythonPackages(), overlay)
-    assert first.action == "update_pending"
-    cached = paths.target_manifest.read_bytes()
-    # The writable boot must apply the validated snapshot without network.
-    def unavailable(*args, **kwargs):
-        raise OSError("network unavailable")
-    monkeypatch.setattr(vscode, "urlopen", unavailable)
-    overlay = Overlay(False)
-    second = boot_prep(paths, ProfileClient(), Code(), PythonPackages(), overlay)
-    assert second.action == "update_applied"
-    assert paths.current_manifest.read_bytes() == cached
-    assert (paths.desktop_dir.parent / "jam-day").is_dir()
-    settings = paths.desktop_dir.parent / ".config/Code/User/settings.json"
-    assert json.loads(settings.read_text())["chat.disableAIFeatures"] is True
-    assert b"jam-day" in (paths.desktop_dir / "visual-studio-code.desktop").read_bytes()

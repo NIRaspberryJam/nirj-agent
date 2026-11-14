@@ -18,7 +18,7 @@ SETTING = "python.defaultInterpreterPath"
 TOKENS = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*[\s\S]*?\*/|\s+|[^\s"{}\[\],:]+|[{}\[\],:]')
 
 
-def merge_setting(content: str, key: str, desired_value: object) -> str:
+def _settings(content: str, interpreter: str) -> str:
     tokens = [
         match for match in TOKENS.finditer(content)
         if not match[0].isspace() and not match[0].startswith(("//", "/*"))
@@ -36,7 +36,7 @@ def merge_setting(content: str, key: str, desired_value: object) -> str:
     for index, token in enumerate(tokens):
         value = token[0]
         if (depth == 1 and value.startswith('"')
-                and json.loads(value) == key
+                and json.loads(value) == SETTING
                 and tokens[index + 1][0] == ":"):
             start = index + 2
             end = start
@@ -49,18 +49,14 @@ def merge_setting(content: str, key: str, desired_value: object) -> str:
                 end += 1
             replacements.append((tokens[start].start(), tokens[end - 1].end()))
         depth += (value in ("{", "[")) - (value in ("}", "]"))
-    encoded = json.dumps(desired_value)
+    encoded = json.dumps(interpreter)
     if replacements:
         for start, end in reversed(replacements):
             content = content[:start] + encoded + content[end:]
         return content
     position = tokens[0].end()
-    entry = f'\n    {json.dumps(key)}: {encoded}' + ("," if data else "") + "\n"
+    entry = f'\n    "{SETTING}": {encoded}' + ("," if data else "") + "\n"
     return content[:position] + entry + content[position:]
-
-
-def _settings(content: str, interpreter: str) -> str:
-    return merge_setting(content, SETTING, interpreter)
 
 
 def _shell(content: str, bin_dir: str) -> str:

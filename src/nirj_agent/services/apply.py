@@ -13,9 +13,8 @@ from nirj_agent.storage.files import read_bytes
 from nirj_agent.storage.lock import exclusive_lock
 from nirj_agent.storage.paths import AgentPaths
 
-from .desktop_shortcuts import SHORTCUT_PACKAGES, reconcile_desktop_shortcuts
+from .desktop_shortcuts import reconcile_desktop_shortcuts
 from .python_setup import reconcile_python_setup
-from .vscode import VSCodeSetupError, reconcile_vscode
 from .reconciliation import (
     ReconciliationPlan,
     build_package_plan,
@@ -39,9 +38,7 @@ class PackageApplyProvider(Protocol):
 
     def update(self) -> None: ...
 
-    def install(
-        self, packages: tuple[str, ...], *, allow_dependency_removals: bool = False,
-    ) -> None: ...
+    def install(self, packages: tuple[str, ...]) -> None: ...
 
     def remove(self, packages: tuple[str, ...]) -> None: ...
 
@@ -104,7 +101,7 @@ def apply_manifest(
         def attempt(operation: Callable[[], None]) -> None:
             try:
                 operation()
-            except (AptProviderError, PipProviderError, VSCodeSetupError) as exc:
+            except (AptProviderError, PipProviderError) as exc:
                 logger.error("Manifest operation failed: %s", exc)
                 errors.append(str(exc))
 
@@ -112,15 +109,7 @@ def apply_manifest(
         if apt_plan.install:
             def install_apt() -> None:
                 package_provider.update()
-                allowed = set(manifest.apt.allow_dependency_removals)
-                ordinary = tuple(name for name in apt_plan.install if name not in allowed)
-                if ordinary:
-                    attempt(lambda: package_provider.install(ordinary))
-                for name in apt_plan.install:
-                    if name in allowed:
-                        attempt(lambda name=name: package_provider.install(
-                            (name,), allow_dependency_removals=True,
-                        ))
+                package_provider.install(apt_plan.install)
 
             attempt(install_apt)
 
@@ -169,22 +158,16 @@ def apply_manifest(
                 python_packages = tuple(sorted(managed.items()))
 
         reconcile_python_setup(paths)
+        required_packages = {"vscode": "code", "sonic-pi": "sonic-pi"}
         shortcuts = tuple(
             shortcut for shortcut in manifest.desktop.shortcuts
-            if SHORTCUT_PACKAGES[shortcut] <= available_packages
+            if required_packages[shortcut] in available_packages
         )
         for shortcut in set(manifest.desktop.shortcuts) - set(shortcuts):
             message = f"Skipped {shortcut} shortcut: required package is not confirmed installed"
             logger.error(message)
             errors.append(message)
-        if manifest.vscode_config_url:
-            if "code" in available_packages:
-                attempt(lambda: reconcile_vscode(paths, manifest))
-            else:
-                errors.append("Skipped VS Code profile: code is not confirmed installed")
-        reconcile_desktop_shortcuts(
-            paths, shortcuts, manifest.vscode_profile if "code" in available_packages else None,
-        )
+        reconcile_desktop_shortcuts(paths, shortcuts)
 
         applied_at = now().astimezone(timezone.utc)
         state = AgentState(

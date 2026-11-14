@@ -56,8 +56,6 @@ def reconcile_windows(
 
 def _unsupported_settings(manifest: Manifest) -> tuple[str, ...]:
     unsupported = []
-    if manifest.vscode_config_url:
-        unsupported.append("vscode.config_url")
     if manifest.apt.enforce:
         unsupported.append("apt.enforce")
     if manifest.apt.packages:

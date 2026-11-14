@@ -123,23 +123,6 @@ OverlayFS. Retry with `nirj-agent update apply` or restart the service after
 fixing the package/repository issue; there is no periodic retry loop.
 Explicit apply commands return a failure exit status for partial updates.
 
-APT installs block dependency removals by default. To permit replacements when
-installing specific packages, list them in `apt.allow_dependency_removals`:
-
-```yaml
-apt:
-  packages: [sonic-pi, pipewire-jack]
-  allow_dependency_removals: [pipewire-jack]
-```
-
-Every allowlisted package must also appear in `apt.packages`. Ordinary packages
-are installed with `--no-remove`; allowlisted packages are installed separately,
-one at a time, without that restriction. This permits any removal APT requires
-for that installation, rather than allowing removal of specific dependency names.
-It is independent of `apt.enforce`, which governs previously managed packages
-omitted from the manifest. The permission is used only when a package needs
-installation; it does not trigger upgrades of already-installed packages.
-
 The manifest can also place agent-managed application launchers on the `jam`
 user's desktop. Each shortcut must include its corresponding APT package:
 
@@ -150,7 +133,6 @@ apt:
     - code
     - python3-venv
     - sonic-pi
-    - pipewire-jack
 python:
   packages:
     jamkit: "0.1.0"
@@ -159,66 +141,6 @@ desktop:
     - vscode
     - sonic-pi
 ```
-
-Sonic Pi shortcuts require both `sonic-pi` and `pipewire-jack`. The agent
-launches Sonic Pi through `pw-jack` from the desktop shortcut and a managed
-`/usr/local/share/applications/sonic-pi.desktop` menu override. Audio uses the
-desktop session; no HDMI or USB device names are configured. HDMI playback
-has been verified on one Pi; USB playback and live output switching still
-require device testing. Removing the shortcut also removes the menu override.
-
-The agent also sets `[config] quick_exec=1` in
-`/home/jam/.config/libfm/libfm.conf`, preserving other preferences. This makes
-PCManFM launch desktop shortcuts directly without the Execute dialog. It also
-applies to other executable files opened in PCManFM. The setting is persisted
-through the normal writable-boot setup; log out and back in if the running
-desktop has not picked it up. This does not change single/double-click behaviour.
-
-## Classroom VS Code profile
-
-Reference a separately hosted YAML profile from the Pi manifest:
-
-```yaml
-vscode:
-  config_url: https://raw.githubusercontent.com/NIRaspberryJam/nirj-infra/main/configs/vscode.yaml
-```
-
-This requires `code` in `apt.packages`. Profiles use schema 1 and accept `folder`
-(a normalized path beneath `/home/jam`), `extensions` (publisher.extension IDs),
-`disabled_extensions`, `settings` (VS Code user settings), and `runtime`
-(`password-store`: `basic` or `gnome-libsecret`). The infrastructure example
-configures `/home/jam/jam-day`, Python and Python Debugger, disables built-in AI,
-welcome walkthroughs and GitHub Git authentication, and disables GitHub/Microsoft
-account providers and Copilot in managed desktop/menu launches.
-
-Downloads require HTTPS, have a timeout and a 256 KiB limit, and are validated
-before replacing the target. The downloaded profile is embedded in the cached
-manifest snapshot. Its contents participate in the update hash, so changing the
-profile at the same URL triggers the normal writable-update flow. Pending updates
-use that snapshot across reboots. Publish the profile URL before deploying a
-manifest that references it. Windows manifests reject this Linux-only setting.
-
-The agent merges settings into `/home/jam/.config/Code/User/settings.json` and
-runtime arguments into `/home/jam/.vscode/argv.json`, preserving unrelated values,
-JSON comments, symlinks, permissions and ownership. The existing managed Python
-interpreter is retained. Removed profile settings are not automatically erased.
-Required extensions are installed and verified as the home-directory owner,
-without optional extension-pack/dependency additions; existing extensions are not
-removed. Already installed extensions are retained rather than updated on every
-boot. Marketplace failures leave the update incomplete for retry.
-
-Both the desktop shortcut and managed `code.desktop` menu override open the
-profile's folder in a new window, using `/usr/share/pixmaps/vscode.png` for the
-logo. `jam-day` is created if missing and existing work is never deleted by setup.
-Its session changes reset with root OverlayFS on reboot; it is not stored in
-`/data`. A workspace-trust prompt may still need acknowledgement on first use.
-The `basic` password store avoids VS Code keyring prompts but does not protect
-stored credentials with the OS keyring. Other applications' keyring prompts are
-unaffected. Verify login prompts and Python debugging on a Pi before rollout.
-
-Desktop setup also sets `show_mounts=0` in existing PCManFM monitor profiles and
-seeds both Pi HDMI profiles. All mounted-drive desktop icons are hidden, including
-USB sticks; mounted drives remain accessible through the file manager.
 
 ## Development
 

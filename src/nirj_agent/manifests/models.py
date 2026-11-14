@@ -8,7 +8,6 @@ SUPPORTED_DESKTOP_SHORTCUTS = frozenset({"sonic-pi", "vscode"})
 class AptManifest:
     enforce: bool
     packages: tuple[str, ...]
-    allow_dependency_removals: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -29,8 +28,6 @@ class Manifest:
     desktop: DesktopManifest
     overlay_enabled: bool
     background_enabled: bool
-    vscode_config_url: str | None = None
-    vscode_profile: dict | None = None
 
 
 @dataclass(frozen=True)

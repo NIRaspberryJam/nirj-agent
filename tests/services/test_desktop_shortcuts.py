@@ -42,19 +42,3 @@ def test_reconcile_removes_unwanted_sonic_pi_shortcut(tmp_path) -> None:
     reconcile_desktop_shortcuts(paths, ())
 
     assert not (paths.desktop_dir / "sonic-pi.desktop").exists()
-
-
-def test_sonic_pi_menu_override_and_drift(tmp_path) -> None:
-    from nirj_agent.services.desktop_shortcuts import desktop_shortcuts_need_reconcile
-
-    paths = AgentPaths.sandbox(tmp_path)
-    assert desktop_shortcuts_need_reconcile(paths, ("sonic-pi",))
-    reconcile_desktop_shortcuts(paths, ("sonic-pi",))
-    menu = paths.applications_dir / "sonic-pi.desktop"
-    assert b"Exec=/usr/bin/pw-jack /usr/bin/sonic-pi\n" in menu.read_bytes()
-    assert not desktop_shortcuts_need_reconcile(paths, ("sonic-pi",))
-    menu.write_bytes(b"stale launcher")
-    assert desktop_shortcuts_need_reconcile(paths, ("sonic-pi",))
-    reconcile_desktop_shortcuts(paths, ())
-    assert not menu.exists()
-    assert not desktop_shortcuts_need_reconcile(paths, ())

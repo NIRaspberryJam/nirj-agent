@@ -139,7 +139,7 @@ def test_parse_manifest_requires_code_for_vscode_shortcut() -> None:
 def test_parse_manifest_accepts_sonic_pi_shortcut_with_package() -> None:
     content = (
         b"schema: 1\n"
-        b"apt:\n  packages: [sonic-pi, pipewire-jack]\n"
+        b"apt:\n  packages: [sonic-pi]\n"
         b"desktop:\n  shortcuts: [sonic-pi]\n"
     )
 
@@ -156,11 +156,6 @@ def test_parse_manifest_requires_sonic_pi_for_shortcut() -> None:
         match="requires sonic-pi in apt.packages",
     ):
         parse_manifest(content)
-
-
-def test_sonic_pi_shortcut_requires_pipewire_jack() -> None:
-    with pytest.raises(ManifestError, match="requires pipewire-jack"):
-        parse_manifest(b"schema: 1\napt:\n  packages: [sonic-pi]\ndesktop:\n  shortcuts: [sonic-pi]\n")
 
 @pytest.mark.parametrize(
     "packages",
@@ -193,22 +188,3 @@ def test_parse_manifest_defaults_to_no_python_packages() -> None:
     manifest = parse_manifest(b"schema: 1\n")
 
     assert manifest.python.packages == ()
-
-
-def test_dependency_removal_permissions_default_and_deduplicate():
-    assert parse_manifest(b"schema: 1\n").apt.allow_dependency_removals == ()
-    manifest = parse_manifest(
-        b"schema: 1\napt:\n  packages: [pipewire-jack]\n"
-        b"  allow_dependency_removals: [pipewire-jack, pipewire-jack]\n"
-    )
-    assert manifest.apt.allow_dependency_removals == ("pipewire-jack",)
-
-
-@pytest.mark.parametrize("value", [True, "pipewire-jack", ["--bad"], [1], ["absent"], {}])
-def test_rejects_invalid_dependency_removal_permissions(value):
-    import yaml
-    content = yaml.safe_dump({"schema": 1, "apt": {
-        "packages": ["pipewire-jack"], "allow_dependency_removals": value,
-    }}).encode()
-    with pytest.raises(ManifestError, match="apt.allow_dependency_removals"):
-        parse_manifest(content)
